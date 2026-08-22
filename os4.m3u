@@ -1,3 +1,6 @@
 #EXTM3U
 #EXTINF:-1,Trans TV
-https://video.detik.com/transtv-sec/smil:transtv.smil/playlist.m3u8?wowzatokenstarttime=0&wowzatokenendtime=1787378170184&wowzatokenhash=ldfvaKZYwIygffxotpG3rTwICw4972nquDbadicbrEQ%3D
+https://livestream.transtv.co.id/stream/live/ttv.m3u8
+
+#EXTINF:-1,Trans7
+https://live.eu-north-1a.cf.dmcdn.net/sec2(LIDYUpY7Nb5-Lkb4HWRbXlCzrNK1cbgDu9IRQh5p99ag3TTARp1nm61eS4QjWts_ToYD9wdLHyraIKy1w96MiCnd-k3Kr4dLlTj4xSAEgvPzTJjUasHEbk7WL1Jn59XB)/dm/3/x8qckyq/d/live-480.m3u8#cell=lcf-eu-north-1a
