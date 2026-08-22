@@ -19,3 +19,6 @@ https://mnctv-linier.rctiplus.id/hdntl=exp=1787495961~acl=%2F*~data=hdntl~hmac=6
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
 https://gtv-linier.rctiplus.id/hdntl=exp=1787494673~acl=%2F*~data=hdntl~hmac=8406aa388d7ec22227be325e62cbce8f7feef51f8c0a9a061e968bb87e7a2e8e/gtv-sdi-avc1_600000=5-mp4a_96000=1.m3u8
+
+#EXTINF:-1,TVRI Nasional
+https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
