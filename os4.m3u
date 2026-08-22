@@ -1,8 +1,6 @@
 #EXTM3U
 #EXTINF:-1,Trans TV
-https://video.detik.com/transtv/smil:transtv.smil/playlist.m3u8
-#EXTINF:-1,Trans 7
-#EXTVLCOPT:http-user-agent=Mozilla/5.0
-https://video.detik.com/trans7/smil:trans7.smil/chunklist_w127267210_b744100_sleng.m3u8
-#EXTINF:-1,TVRI Nasional
-https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
+#EXTVLCOPT:http-referrer=https://20.detik.com/
+#EXTVLCOPT:http-origin=https://20.detik.com
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Linux; Android 12; CPH2127 Build/RKQ1.211119.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/151.0.7922.83 Safari/537.36
+https://video.detik.com/transtv-sec/smil:transtv.smil/playlist.m3u8
