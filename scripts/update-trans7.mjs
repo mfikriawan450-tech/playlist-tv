@@ -1,10 +1,22 @@
 import { chromium } from "playwright";
 
 const browser = await chromium.launch({
-  headless: true
+  headless: true,
+  args: [
+    "--autoplay-policy=no-user-gesture-required"
+  ]
 });
 
-const page = await browser.newPage();
+const context = await browser.newContext({
+  viewport: {
+    width: 1280,
+    height: 720
+  },
+  userAgent:
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+});
+
+const page = await context.newPage();
 
 const found = new Set();
 
@@ -46,13 +58,53 @@ await page.goto(
 );
 
 console.log("Player terbuka.");
-console.log("Menunggu semua request M3U8...");
 
-await page.waitForTimeout(60000);
+await page.waitForTimeout(10000);
+
+console.log("Mencari elemen video...");
+
+const videos = await page.locator("video").count();
+
+console.log("Jumlah video:", videos);
+
+for (let i = 0; i < videos; i++) {
+  try {
+    await page.locator("video").nth(i).evaluate(video => {
+      video.muted = true;
+
+      const promise = video.play();
+
+      if (promise) {
+        promise.catch(() => {});
+      }
+    });
+
+    console.log(`Video ${i} diperintahkan PLAY.`);
+  } catch (error) {
+    console.log(
+      `Gagal menjalankan video ${i}:`,
+      error.message
+    );
+  }
+}
+
+console.log("Menunggu stream...");
+
+for (let i = 0; i < 90; i++) {
+  await page.waitForTimeout(1000);
+
+  if (i % 10 === 0) {
+    console.log(`Menunggu... ${i}s`);
+  }
+}
 
 console.log("=================================");
-console.log("SELESAI");
+console.log("HASIL");
 console.log("Jumlah M3U8:", found.size);
 console.log("=================================");
+
+for (const url of found) {
+  console.log(url);
+}
 
 await browser.close();
