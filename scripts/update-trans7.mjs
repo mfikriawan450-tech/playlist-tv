@@ -4,12 +4,8 @@ import fs from "fs";
 const VIDEO_ID = "x8qckyq";
 
 const browser = await chromium.launch({
-  headless: true,
+  headless: false,
   args: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage",
-    "--disable-gpu",
     "--autoplay-policy=no-user-gesture-required",
     "--disable-blink-features=AutomationControlled",
     "--window-size=1280,720"
@@ -29,99 +25,104 @@ const context = await browser.newContext({
   timezoneId: "Asia/Jakarta"
 });
 
-await context.addInitScript(() => {
-  Object.defineProperty(navigator, "webdriver", {
-    get: () => undefined
-  });
-});
-
 const page = await context.newPage();
 
-const streams = new Set();
-const manifests = new Set();
+const foundStreams = new Set();
+const foundManifests = new Set();
 
-/*
-====================================================
-CEK URL
-====================================================
-*/
-
-function checkUrl(url, source) {
+function printStream(url, source) {
   if (!url) return;
 
-  /*
-   * STREAM HLS YANG KITA CARI
-   */
-  if (
+  const isStream =
     url.includes("live-240.m3u8") ||
     url.includes("live-480.m3u8") ||
-    url.includes("live-720.m3u8")
+    url.includes("live-720.m3u8");
+
+  if (!isStream) return;
+
+  if (foundStreams.has(url)) return;
+
+  foundStreams.add(url);
+
+  console.log("");
+  console.log("=================================");
+  console.log("STREAM DITEMUKAN");
+  console.log("SOURCE:", source);
+  console.log("=================================");
+  console.log(url);
+  console.log("=================================");
+}
+
+function printManifest(url, source) {
+  if (!url) return;
+
+  if (
+    !url.includes(".m3u8") ||
+    (
+      !url.includes("dailymotion.com") &&
+      !url.includes("dmcdn.net")
+    )
   ) {
-    if (!streams.has(url)) {
-      streams.add(url);
-
-      console.log("");
-      console.log("=================================");
-      console.log("STREAM HLS DITEMUKAN");
-      console.log("SOURCE:", source);
-      console.log("=================================");
-      console.log(url);
-      console.log("=================================");
-    }
-
     return;
   }
 
-  /*
-   * Manifest CDN Dailymotion
-   */
-  if (
-    url.includes(".m3u8") &&
-    (
-      url.includes("dmcdn.net") ||
-      url.includes("dailymotion.com")
-    )
-  ) {
-    if (!manifests.has(url)) {
-      manifests.add(url);
+  if (foundManifests.has(url)) return;
 
-      console.log("");
-      console.log("HLS MANIFEST:");
-      console.log(url);
-    }
-  }
+  foundManifests.add(url);
+
+  console.log("");
+  console.log("HLS MANIFEST");
+  console.log("SOURCE:", source);
+  console.log(url);
+  console.log("");
 }
 
 /*
-====================================================
-REQUEST
-====================================================
+==================================================
+REQUEST LISTENER
+==================================================
 */
 
 page.on("request", request => {
-  checkUrl(
-    request.url(),
-    "REQUEST"
-  );
+  const url = request.url();
+
+  printStream(url, "REQUEST");
+  printManifest(url, "REQUEST");
 });
 
 /*
-====================================================
-RESPONSE
-====================================================
+==================================================
+RESPONSE LISTENER
+==================================================
 */
 
 page.on("response", response => {
-  checkUrl(
-    response.url(),
-    `RESPONSE ${response.status()}`
+  const url = response.url();
+  const status = response.status();
+
+  if (
+    url.includes("live-") &&
+    url.includes(".m3u8")
+  ) {
+    console.log("");
+    console.log("HLS RESPONSE:", status);
+
+    printStream(
+      url,
+      `RESPONSE ${status}`
+    );
+  }
+
+  printManifest(
+    url,
+    `RESPONSE ${status}`
   );
 });
 
 /*
-====================================================
+==================================================
 REQUEST FAILED
-====================================================
+==================================================
 */
 
 page.on("requestfailed", request => {
@@ -132,7 +133,7 @@ page.on("requestfailed", request => {
     url.includes("dmcdn.net")
   ) {
     console.log("");
-    console.log("REQUEST FAILED:");
+    console.log("REQUEST FAILED");
     console.log(url);
     console.log(
       request.failure()?.errorText || ""
@@ -141,30 +142,44 @@ page.on("requestfailed", request => {
 });
 
 /*
-====================================================
-CONSOLE PLAYER
-====================================================
+==================================================
+CONSOLE
+==================================================
 */
 
 page.on("console", msg => {
   const text = msg.text();
 
   if (
-    text.includes("HLS") ||
     text.includes("m3u8") ||
-    text.includes("stream")
+    text.includes("HLS") ||
+    text.includes("buffer") ||
+    text.includes("level")
   ) {
     console.log(
-      "[PLAYER]",
+      "[BROWSER]",
       text
     );
   }
 });
 
 /*
-====================================================
-BUKA DAILYMOTION
-====================================================
+==================================================
+PAGE ERROR
+==================================================
+*/
+
+page.on("pageerror", error => {
+  console.log(
+    "[PAGE ERROR]",
+    error.message
+  );
+});
+
+/*
+==================================================
+BUKA PLAYER
+==================================================
 */
 
 console.log(
@@ -179,36 +194,98 @@ await page.goto(
   }
 );
 
-console.log("Player terbuka.");
+console.log(
+  "Player terbuka."
+);
 
 /*
-====================================================
-TUNGGU PLAYER
-====================================================
-*/
-
-await page.waitForTimeout(10000);
-
-/*
-====================================================
-VIDEO
-====================================================
+==================================================
+TUNGGU INITIAL PLAYER
+==================================================
 */
 
 console.log(
-  "Mencari elemen video..."
+  "Menunggu player melakukan inisialisasi..."
 );
 
-const videos =
+await page.waitForTimeout(15000);
+
+/*
+==================================================
+CEK VIDEO
+==================================================
+*/
+
+const videoCount =
   await page.locator("video").count();
 
 console.log(
   "Jumlah video:",
-  videos
+  videoCount
 );
 
-for (let i = 0; i < videos; i++) {
+/*
+==================================================
+JANGAN LANGSUNG PLAY SEMUA VIDEO
+==================================================
+*/
+
+for (let i = 0; i < videoCount; i++) {
+
   try {
+
+    const state =
+      await page
+        .locator("video")
+        .nth(i)
+        .evaluate(video => ({
+          paused: video.paused,
+          readyState: video.readyState,
+          src: video.currentSrc || video.src,
+          muted: video.muted
+        }));
+
+    console.log("");
+    console.log(
+      `VIDEO ${i}:`
+    );
+
+    console.log(state);
+
+  } catch (error) {
+
+    console.log(
+      `Gagal membaca video ${i}:`,
+      error.message
+    );
+  }
+}
+
+/*
+==================================================
+COBA PLAY VIDEO YANG MEMILIKI SRC
+==================================================
+*/
+
+for (let i = 0; i < videoCount; i++) {
+
+  try {
+
+    const hasSrc =
+      await page
+        .locator("video")
+        .nth(i)
+        .evaluate(video =>
+          Boolean(
+            video.currentSrc ||
+            video.src
+          )
+        );
+
+    if (!hasSrc) {
+      continue;
+    }
+
     await page
       .locator("video")
       .nth(i)
@@ -216,17 +293,16 @@ for (let i = 0; i < videos; i++) {
 
         video.muted = true;
 
-        try {
-          video.setAttribute(
-            "playsinline",
-            ""
-          );
-        } catch {}
+        video.setAttribute(
+          "playsinline",
+          ""
+        );
 
-        const p = video.play();
+        const promise =
+          video.play();
 
-        if (p) {
-          p.catch(() => {});
+        if (promise) {
+          promise.catch(() => {});
         }
       });
 
@@ -237,16 +313,16 @@ for (let i = 0; i < videos; i++) {
   } catch (error) {
 
     console.log(
-      `Gagal PLAY video ${i}:`,
+      `PLAY video ${i} gagal:`,
       error.message
     );
   }
 }
 
 /*
-====================================================
-COBA KLIK PLAYER
-====================================================
+==================================================
+KLIK PLAYER
+==================================================
 */
 
 try {
@@ -263,31 +339,34 @@ try {
 } catch {}
 
 /*
-====================================================
-TUNGGU HLS
-====================================================
+==================================================
+TUNGGU STREAM
+==================================================
 */
 
 console.log("");
 console.log(
-  "Menunggu request HLS..."
+  "Menunggu request stream HLS..."
 );
 
-const MAX_WAIT = 300; // 5 menit
+const MAX_WAIT = 300;
 
 for (
-  let i = 0;
-  i < MAX_WAIT;
-  i++
+  let second = 0;
+  second < MAX_WAIT;
+  second++
 ) {
 
-  if (streams.size > 0) {
+  if (foundStreams.size > 0) {
     break;
   }
 
-  if (i % 10 === 0) {
+  if (
+    second % 10 === 0
+  ) {
+
     console.log(
-      `Menunggu... ${i}s`
+      `Menunggu... ${second}s`
     );
   }
 
@@ -297,9 +376,9 @@ for (
 }
 
 /*
-====================================================
+==================================================
 HASIL
-====================================================
+==================================================
 */
 
 console.log("");
@@ -316,20 +395,28 @@ console.log(
 );
 
 console.log(
-  "Jumlah manifest:",
-  manifests.size
+  "Manifest:",
+  foundManifests.size
 );
 
 console.log(
-  "Jumlah stream:",
-  streams.size
+  "Stream:",
+  foundStreams.size
 );
 
 console.log(
   "================================="
 );
 
-if (streams.size === 0) {
+/*
+==================================================
+TIDAK DITEMUKAN
+==================================================
+*/
+
+if (
+  foundStreams.size === 0
+) {
 
   console.log("");
   console.log(
@@ -338,10 +425,12 @@ if (streams.size === 0) {
 
   console.log("");
   console.log(
-    "Manifest yang berhasil terlihat:"
+    "Manifest yang terlihat:"
   );
 
-  for (const url of manifests) {
+  for (
+    const url of foundManifests
+  ) {
     console.log(url);
   }
 
@@ -351,32 +440,31 @@ if (streams.size === 0) {
 }
 
 /*
-====================================================
-PILIH STREAM
-====================================================
+==================================================
+PILIH RESOLUSI
+==================================================
 */
 
-const urls = [
-  ...streams
-];
+const streams =
+  [...foundStreams];
 
-const streamUrl =
-  urls.find(u =>
-    u.includes(
+const selected =
+  streams.find(url =>
+    url.includes(
       "live-720.m3u8"
     )
   ) ||
-  urls.find(u =>
-    u.includes(
+  streams.find(url =>
+    url.includes(
       "live-480.m3u8"
     )
   ) ||
-  urls.find(u =>
-    u.includes(
+  streams.find(url =>
+    url.includes(
       "live-240.m3u8"
     )
   ) ||
-  urls[0];
+  streams[0];
 
 console.log("");
 console.log(
@@ -384,13 +472,13 @@ console.log(
 );
 
 console.log(
-  streamUrl
+  selected
 );
 
 /*
-====================================================
-SIMPAN PLAYLIST
-====================================================
+==================================================
+BUAT PLAYLIST
+==================================================
 */
 
 fs.mkdirSync(
@@ -403,7 +491,7 @@ fs.mkdirSync(
 const playlist =
 `#EXTM3U
 #EXTINF:-1,Trans7
-${streamUrl}
+${selected}
 `;
 
 fs.writeFileSync(
