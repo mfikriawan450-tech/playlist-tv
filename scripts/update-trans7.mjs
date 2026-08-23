@@ -6,22 +6,32 @@ const browser = await chromium.launch({
 
 const page = await browser.newPage();
 
-let streamUrl = null;
+const found = new Set();
 
 page.on("request", request => {
   const url = request.url();
 
-  if (
-    url.includes(
-      "cdndirector.dailymotion.com/cdn/live/video/x8qckyq.m3u8"
-    )
-  ) {
-    console.log("=================================");
-    console.log("STREAM URL DITEMUKAN:");
-    console.log(url);
-    console.log("=================================");
+  if (url.includes(".m3u8")) {
+    if (!found.has(url)) {
+      found.add(url);
 
-    streamUrl = url;
+      console.log("=================================");
+      console.log("M3U8 REQUEST:");
+      console.log(url);
+      console.log("=================================");
+    }
+  }
+});
+
+page.on("response", response => {
+  const url = response.url();
+
+  if (url.includes(".m3u8")) {
+    console.log(
+      "M3U8 RESPONSE:",
+      response.status(),
+      url
+    );
   }
 });
 
@@ -36,18 +46,13 @@ await page.goto(
 );
 
 console.log("Player terbuka.");
-console.log("Menunggu stream...");
+console.log("Menunggu semua request M3U8...");
 
-for (let i = 0; i < 60 && !streamUrl; i++) {
-  await page.waitForTimeout(1000);
-}
+await page.waitForTimeout(60000);
 
-if (!streamUrl) {
-  console.error("STREAM URL TIDAK DITEMUKAN.");
-  await browser.close();
-  process.exit(1);
-}
-
-console.log("Stream Trans7 berhasil ditemukan.");
+console.log("=================================");
+console.log("SELESAI");
+console.log("Jumlah M3U8:", found.size);
+console.log("=================================");
 
 await browser.close();
