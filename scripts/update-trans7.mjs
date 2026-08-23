@@ -1,6 +1,8 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
+const VIDEO_ID = "x8qckyq";
+
 const browser = await chromium.launch({
   headless: true,
   args: [
@@ -48,22 +50,41 @@ await context.addInitScript(() => {
 
 const page = await context.newPage();
 
+let manifestUrl = null;
 const found = new Set();
 
 /*
- * DEBUG:
- * tampilkan request Dailymotion dan DMCDN
- */
+====================================================
+REQUEST MONITOR
+====================================================
+*/
+
 page.on("request", request => {
   const url = request.url();
 
+  /*
+   * Manifest utama Dailymotion
+   */
   if (
-    url.includes("dailymotion.com") ||
-    url.includes("dmcdn.net")
+    url.includes(
+      `dmxleo.dailymotion.com/cdn/manifest/video/${VIDEO_ID}.m3u8`
+    )
   ) {
-    console.log("REQUEST:", url);
+    if (!manifestUrl) {
+      manifestUrl = url;
+
+      console.log("");
+      console.log("=================================");
+      console.log("MANIFEST DITEMUKAN");
+      console.log("=================================");
+      console.log(url);
+      console.log("=================================");
+    }
   }
 
+  /*
+   * Kalau player langsung meminta stream
+   */
   if (
     url.includes("/live-240.m3u8") ||
     url.includes("/live-480.m3u8") ||
@@ -81,21 +102,35 @@ page.on("request", request => {
     }
   }
 });
+
+/*
+====================================================
+RESPONSE MONITOR
+====================================================
+*/
 
 page.on("response", response => {
   const url = response.url();
 
+  /*
+   * Manifest utama
+   */
   if (
-    url.includes("dailymotion.com") ||
-    url.includes("dmcdn.net")
+    url.includes(
+      `dmxleo.dailymotion.com/cdn/manifest/video/${VIDEO_ID}.m3u8`
+    )
   ) {
-    console.log(
-      "RESPONSE:",
-      response.status(),
-      url
-    );
+    console.log("");
+    console.log("MANIFEST RESPONSE:", response.status());
+
+    if (!manifestUrl) {
+      manifestUrl = url;
+    }
   }
 
+  /*
+   * Stream langsung
+   */
   if (
     url.includes("/live-240.m3u8") ||
     url.includes("/live-480.m3u8") ||
@@ -106,18 +141,25 @@ page.on("response", response => {
 
       console.log("");
       console.log("=================================");
-      console.log("LIVE STREAM DITEMUKAN");
+      console.log("LIVE STREAM RESPONSE");
       console.log("=================================");
+      console.log(response.status());
       console.log(url);
       console.log("=================================");
     }
   }
 });
 
+/*
+====================================================
+BUKA PLAYER
+====================================================
+*/
+
 console.log("Membuka Dailymotion Player Trans7...");
 
 await page.goto(
-  "https://geo.dailymotion.com/player/x15a7g.html?video=x8qckyq",
+  `https://geo.dailymotion.com/player/x15a7g.html?video=${VIDEO_ID}`,
   {
     waitUntil: "domcontentloaded",
     timeout: 60000
@@ -126,8 +168,43 @@ await page.goto(
 
 console.log("Player terbuka.");
 
-await page.waitForTimeout(10000);
+/*
+====================================================
+TUNGGU MANIFEST
+====================================================
+*/
 
+console.log("Menunggu manifest...");
+
+for (let i = 0; i < 30; i++) {
+  if (manifestUrl) {
+    break;
+  }
+
+  console.log(`Menunggu manifest... ${i * 2}s`);
+
+  await page.waitForTimeout(2000);
+}
+
+if (manifestUrl) {
+  console.log("");
+  console.log("=================================");
+  console.log("MANIFEST URL");
+  console.log("=================================");
+  console.log(manifestUrl);
+  console.log("=================================");
+} else {
+  console.log("");
+  console.log("MANIFEST TIDAK DITEMUKAN.");
+}
+
+/*
+====================================================
+CARI VIDEO
+====================================================
+*/
+
+console.log("");
 console.log("Mencari elemen video...");
 
 const videos = await page.locator("video").count();
@@ -154,35 +231,178 @@ for (let i = 0; i < videos; i++) {
   }
 }
 
-console.log("Menunggu request HLS...");
+/*
+====================================================
+AMBIL ISI MANIFEST
+====================================================
+*/
 
-for (let i = 0; i < 18; i++) {
+if (manifestUrl) {
+  console.log("");
+  console.log("Mengambil isi manifest...");
+
+  try {
+    const response = await page.request.get(manifestUrl);
+
+    console.log(
+      "MANIFEST STATUS:",
+      response.status()
+    );
+
+    const body = await response.text();
+
+    console.log("");
+    console.log("=================================");
+    console.log("ISI MANIFEST");
+    console.log("=================================");
+    console.log(body);
+    console.log("=================================");
+
+    /*
+     * Cari URL live stream langsung
+     */
+
+    const streamMatches = body.match(
+      /https?:\/\/[^"'<>\\\s]+\/live-(?:240|480|720)\.m3u8[^"'<>\\\s]*/g
+    );
+
+    if (streamMatches && streamMatches.length > 0) {
+      for (const url of streamMatches) {
+        found.add(url);
+      }
+
+      console.log("");
+      console.log("=================================");
+      console.log(
+        "STREAM DITEMUKAN DARI MANIFEST"
+      );
+      console.log("=================================");
+
+      for (const url of found) {
+        console.log(url);
+      }
+
+      console.log("=================================");
+    } else {
+      /*
+       * Kadang manifest menggunakan URL relatif.
+       */
+
+      const relativeMatches = body.match(
+        /(?:https?:\/\/[^"'<>\\\s]+)?\/?live-(?:240|480|720)\.m3u8[^"'<>\\\s]*/g
+      );
+
+      if (
+        relativeMatches &&
+        relativeMatches.length > 0
+      ) {
+        for (const relative of relativeMatches) {
+          try {
+            const absolute = new URL(
+              relative,
+              manifestUrl
+            ).href;
+
+            found.add(absolute);
+          } catch {}
+        }
+      }
+    }
+  } catch (error) {
+    console.log(
+      "GAGAL MENGAMBIL MANIFEST:",
+      error.message
+    );
+  }
+}
+
+/*
+====================================================
+TUNGGU REQUEST STREAM
+====================================================
+*/
+
+console.log("");
+console.log("Menunggu request stream...");
+
+for (let i = 0; i < 30; i++) {
   if (found.size > 0) {
     break;
   }
 
-  console.log(`Menunggu... ${i * 10}s`);
+  console.log(`Menunggu... ${i * 2}s`);
 
-  await page.waitForTimeout(10000);
+  await page.waitForTimeout(2000);
 }
+
+/*
+====================================================
+HASIL
+====================================================
+*/
 
 console.log("");
 console.log("=================================");
 console.log("HASIL");
-console.log("Jumlah URL ditemukan:", found.size);
+console.log("=================================");
+console.log(
+  "Manifest ditemukan:",
+  manifestUrl ? "YA" : "TIDAK"
+);
+console.log(
+  "Jumlah URL stream:",
+  found.size
+);
 console.log("=================================");
 
 if (found.size === 0) {
+  console.log("");
+  console.log(
+    "STREAM BELUM DITEMUKAN."
+  );
+  console.log(
+    "Kita perlu melihat struktur manifest di atas."
+  );
+
   await browser.close();
+
   process.exit(1);
 }
 
-const streamUrl = [...found][0];
+/*
+====================================================
+PILIH KUALITAS
+====================================================
+
+Prioritas:
+720p
+480p
+240p
+*/
+
+const urls = [...found];
+
+let streamUrl =
+  urls.find(url =>
+    url.includes("live-720.m3u8")
+  ) ||
+  urls.find(url =>
+    url.includes("live-480.m3u8")
+  ) ||
+  urls.find(url =>
+    url.includes("live-240.m3u8")
+  ) ||
+  urls[0];
 
 console.log("");
-console.log("STREAM TRANS7:");
+console.log("STREAM YANG DIPILIH:");
 console.log(streamUrl);
-console.log("");
+
+/*
+====================================================
+SIMPAN PLAYLIST
+====================================================
+*/
 
 fs.mkdirSync("playlist", {
   recursive: true
@@ -199,7 +419,14 @@ fs.writeFileSync(
   "utf8"
 );
 
-console.log("Playlist Trans7 berhasil diperbarui.");
-console.log("File: playlist/trans7.m3u");
+console.log("");
+console.log("=================================");
+console.log("PLAYLIST BERHASIL DIPERBARUI");
+console.log("=================================");
+console.log("File:");
+console.log("playlist/trans7.m3u");
+console.log("");
+console.log(playlist);
+console.log("=================================");
 
 await browser.close();
