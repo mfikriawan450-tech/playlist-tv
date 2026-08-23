@@ -20,31 +20,31 @@ const page = await context.newPage();
 
 const found = new Set();
 
-page.on("request", request => {
-  const url = request.url();
-
-  if (url.includes(".m3u8")) {
+function checkUrl(url, type) {
+  if (
+    url.includes("live-") ||
+    url.includes("dmcdn.net/sec2")
+  ) {
     if (!found.has(url)) {
       found.add(url);
 
       console.log("=================================");
-      console.log("M3U8 REQUEST:");
+      console.log(type);
       console.log(url);
       console.log("=================================");
     }
   }
+}
+
+page.on("request", request => {
+  checkUrl(request.url(), "REQUEST");
 });
 
 page.on("response", response => {
-  const url = response.url();
-
-  if (url.includes(".m3u8")) {
-    console.log(
-      "M3U8 RESPONSE:",
-      response.status(),
-      url
-    );
-  }
+  checkUrl(
+    response.url(),
+    `RESPONSE ${response.status()}`
+  );
 });
 
 console.log("Membuka Dailymotion Player Trans7...");
@@ -72,10 +72,10 @@ for (let i = 0; i < videos; i++) {
     await page.locator("video").nth(i).evaluate(video => {
       video.muted = true;
 
-      const promise = video.play();
+      const p = video.play();
 
-      if (promise) {
-        promise.catch(() => {});
+      if (p) {
+        p.catch(() => {});
       }
     });
 
@@ -88,19 +88,13 @@ for (let i = 0; i < videos; i++) {
   }
 }
 
-console.log("Menunggu stream...");
+console.log("Menunggu HLS.js...");
 
-for (let i = 0; i < 90; i++) {
-  await page.waitForTimeout(1000);
-
-  if (i % 10 === 0) {
-    console.log(`Menunggu... ${i}s`);
-  }
-}
+await page.waitForTimeout(90000);
 
 console.log("=================================");
 console.log("HASIL");
-console.log("Jumlah M3U8:", found.size);
+console.log("Jumlah URL ditemukan:", found.size);
 console.log("=================================");
 
 for (const url of found) {
