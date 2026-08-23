@@ -20,6 +20,14 @@ const context = await browser.newContext({
     height: 720
   },
 
+  userAgent:
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36",
+
+  locale: "en-US",
+
+  timezoneId: "Asia/Jakarta"
+});
+
 await context.addInitScript(() => {
   Object.defineProperty(navigator, "webdriver", {
     get: () => undefined
@@ -38,41 +46,72 @@ await context.addInitScript(() => {
   });
 });
 
-  userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
-});
-
 const page = await context.newPage();
 
 const found = new Set();
 
-function checkUrl(url, type) {
+/*
+ * DEBUG:
+ * tampilkan request Dailymotion dan DMCDN
+ */
+page.on("request", request => {
+  const url = request.url();
+
   if (
-    url.includes("live-240.m3u8") &&
+    url.includes("dailymotion.com") ||
     url.includes("dmcdn.net")
+  ) {
+    console.log("REQUEST:", url);
+  }
+
+  if (
+    url.includes("/live-240.m3u8") ||
+    url.includes("/live-480.m3u8") ||
+    url.includes("/live-720.m3u8")
   ) {
     if (!found.has(url)) {
       found.add(url);
 
       console.log("");
       console.log("=================================");
-      console.log("LIVE-240 DITEMUKAN");
+      console.log("LIVE STREAM DITEMUKAN");
       console.log("=================================");
       console.log(url);
       console.log("=================================");
     }
   }
-}
-
-/*
- * Tangkap request sebelum membuka halaman.
- */
-page.on("request", request => {
-  checkUrl(request.url(), "REQUEST");
 });
 
 page.on("response", response => {
-  checkUrl(response.url(), `RESPONSE ${response.status()}`);
+  const url = response.url();
+
+  if (
+    url.includes("dailymotion.com") ||
+    url.includes("dmcdn.net")
+  ) {
+    console.log(
+      "RESPONSE:",
+      response.status(),
+      url
+    );
+  }
+
+  if (
+    url.includes("/live-240.m3u8") ||
+    url.includes("/live-480.m3u8") ||
+    url.includes("/live-720.m3u8")
+  ) {
+    if (!found.has(url)) {
+      found.add(url);
+
+      console.log("");
+      console.log("=================================");
+      console.log("LIVE STREAM DITEMUKAN");
+      console.log("=================================");
+      console.log(url);
+      console.log("=================================");
+    }
+  }
 });
 
 console.log("Membuka Dailymotion Player Trans7...");
@@ -115,10 +154,12 @@ for (let i = 0; i < videos; i++) {
   }
 }
 
-console.log("Menunggu request live-240.m3u8...");
+console.log("Menunggu request HLS...");
 
 for (let i = 0; i < 18; i++) {
-  if (found.size > 0) break;
+  if (found.size > 0) {
+    break;
+  }
 
   console.log(`Menunggu... ${i * 10}s`);
 
@@ -136,9 +177,6 @@ if (found.size === 0) {
   process.exit(1);
 }
 
-/*
- * Ambil URL pertama yang ditemukan.
- */
 const streamUrl = [...found][0];
 
 console.log("");
@@ -146,16 +184,10 @@ console.log("STREAM TRANS7:");
 console.log(streamUrl);
 console.log("");
 
-/*
- * Pastikan folder playlist tersedia.
- */
 fs.mkdirSync("playlist", {
   recursive: true
 });
 
-/*
- * Tulis playlist M3U.
- */
 const playlist = `#EXTM3U
 #EXTINF:-1,Trans7
 ${streamUrl}
