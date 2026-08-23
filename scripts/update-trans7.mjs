@@ -16,17 +16,15 @@ page.on("request", (request) => {
     console.log("DM REQUEST:", url);
   }
 
-  if (
-    url.includes("cdndirector.dailymotion.com/cdn/live/video/x8qckyq.m3u8") &&
-    url.includes("?sec=")
-  ) {
-    streamUrl = url;
+if (
+  url.includes("dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8")
+) {
+  streamUrl = url;
 
-    console.log("=================================");
-    console.log("URL TRANS7 DITEMUKAN:");
-    console.log(streamUrl);
-    console.log("=================================");
-  }
+  console.log("=================================");
+  console.log("URL TRANS7 DITEMUKAN:");
+  console.log(streamUrl);
+  console.log("=================================");
 });
 
 page.on("response", (response) => {
