@@ -4,8 +4,13 @@ import fs from "fs";
 const browser = await chromium.launch({
   headless: true,
   args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
     "--autoplay-policy=no-user-gesture-required",
-    "--disable-blink-features=AutomationControlled"
+    "--disable-blink-features=AutomationControlled",
+    "--window-size=1280,720"
   ]
 });
 
@@ -14,6 +19,24 @@ const context = await browser.newContext({
     width: 1280,
     height: 720
   },
+
+await context.addInitScript(() => {
+  Object.defineProperty(navigator, "webdriver", {
+    get: () => undefined
+  });
+
+  Object.defineProperty(navigator, "languages", {
+    get: () => ["en-US", "en"]
+  });
+
+  Object.defineProperty(navigator, "plugins", {
+    get: () => [1, 2, 3, 4, 5]
+  });
+
+  Object.defineProperty(navigator, "platform", {
+    get: () => "Win32"
+  });
+});
 
   userAgent:
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
