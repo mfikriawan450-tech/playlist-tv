@@ -33,7 +33,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add playlist/tv.m3u
+          git add playlist/trans7.m3u
 
           if git diff --cached --quiet; then
             echo "Tidak ada perubahan."
