@@ -6,35 +6,22 @@ const browser = await chromium.launch({
 
 const page = await browser.newPage();
 
-let authUrl = null;
+let streamUrl = null;
 
-page.on("response", async (response) => {
-  const url = response.url();
+page.on("request", request => {
+  const url = request.url();
 
   if (
-    url.includes("dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8")
+    url.includes(
+      "cdndirector.dailymotion.com/cdn/live/video/x8qckyq.m3u8"
+    )
   ) {
-    console.log("MANIFEST:", response.status());
+    console.log("=================================");
+    console.log("STREAM URL DITEMUKAN:");
+    console.log(url);
+    console.log("=================================");
 
-    try {
-      const body = await response.text();
-
-      const match = body.match(
-        /https:\/\/dmxleo\.dailymotion\.com\/cdn\/manifest\/video\/x8qckyq\.m3u8\?auth=[^"<]+/
-      );
-
-      if (match) {
-        authUrl = match[0]
-          .replace(/&amp;/g, "&");
-
-        console.log("=================================");
-        console.log("AUTH URL DITEMUKAN:");
-        console.log(authUrl);
-        console.log("=================================");
-      }
-    } catch (error) {
-      console.log("Gagal membaca manifest:", error.message);
-    }
+    streamUrl = url;
   }
 });
 
@@ -48,29 +35,19 @@ await page.goto(
   }
 );
 
-console.log("Menunggu manifest...");
+console.log("Player terbuka.");
+console.log("Menunggu stream...");
 
-for (let i = 0; i < 60 && !authUrl; i++) {
+for (let i = 0; i < 60 && !streamUrl; i++) {
   await page.waitForTimeout(1000);
 }
 
-if (!authUrl) {
-  console.error("AUTH URL tidak ditemukan.");
+if (!streamUrl) {
+  console.error("STREAM URL TIDAK DITEMUKAN.");
   await browser.close();
   process.exit(1);
 }
 
-console.log("Meminta AUTH URL...");
-
-const response = await page.request.get(authUrl);
-
-console.log("AUTH RESPONSE STATUS:", response.status());
-
-const body = await response.text();
-
-console.log("=================================");
-console.log("ISI AUTH RESPONSE:");
-console.log(body);
-console.log("=================================");
+console.log("Stream Trans7 berhasil ditemukan.");
 
 await browser.close();
