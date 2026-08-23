@@ -16,22 +16,29 @@ page.on("request", (request) => {
     console.log("DM REQUEST:", url);
   }
 
-if (
-  url.includes("dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8")
-) {
-  streamUrl = url;
+  if (
+    url.includes(
+      "dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8"
+    )
+  ) {
+    streamUrl = url;
 
-  console.log("=================================");
-  console.log("URL TRANS7 DITEMUKAN:");
-  console.log(streamUrl);
-  console.log("=================================");
+    console.log("=================================");
+    console.log("URL TRANS7 DITEMUKAN:");
+    console.log(streamUrl);
+    console.log("=================================");
+  }
 });
 
 page.on("response", (response) => {
   const url = response.url();
 
   if (url.includes("dailymotion.com")) {
-    console.log("DM RESPONSE:", response.status(), url);
+    console.log(
+      "DM RESPONSE:",
+      response.status(),
+      url
+    );
   }
 });
 
@@ -55,7 +62,10 @@ for (let i = 0; i < 60 && !streamUrl; i++) {
 if (!streamUrl) {
   await browser.close();
 
-  console.error("GAGAL: URL Trans7 tidak ditemukan.");
+  console.error(
+    "GAGAL: URL manifest Trans7 tidak ditemukan."
+  );
+
   process.exit(1);
 }
 
@@ -64,7 +74,9 @@ const playlist = `#EXTM3U
 ${streamUrl}
 `;
 
-fs.mkdirSync("playlist", { recursive: true });
+fs.mkdirSync("playlist", {
+  recursive: true
+});
 
 fs.writeFileSync(
   "playlist/trans7.m3u",
@@ -73,4 +85,6 @@ fs.writeFileSync(
 
 await browser.close();
 
-console.log("Playlist Trans7 berhasil diperbarui.");
+console.log(
+  "Playlist Trans7 berhasil diperbarui."
+);
