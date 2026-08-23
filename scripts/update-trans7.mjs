@@ -1,9 +1,11 @@
 import { chromium } from "playwright";
+import fs from "fs";
 
 const browser = await chromium.launch({
   headless: true,
   args: [
-    "--autoplay-policy=no-user-gesture-required"
+    "--autoplay-policy=no-user-gesture-required",
+    "--disable-blink-features=AutomationControlled"
   ]
 });
 
@@ -11,35 +13,49 @@ const context = await browser.newContext({
   viewport: {
     width: 1280,
     height: 720
-  }
+  },
+
+  userAgent:
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
 });
 
 const page = await context.newPage();
 
-let found = false;
+const found = new Set();
 
-page.on("request", request => {
-  const url = request.url();
-
+function checkUrl(url, type) {
   if (
-    url.includes("cdndirector.dailymotion.com") &&
-    url.includes("/cdn/live/video/x8qckyq.m3u8")
+    url.includes("live-240.m3u8") &&
+    url.includes("dmcdn.net")
   ) {
-    console.log("");
-    console.log("=================================");
-    console.log("CDNDIRECTOR DITEMUKAN");
-    console.log("=================================");
-    console.log(url);
-    console.log("=================================");
+    if (!found.has(url)) {
+      found.add(url);
 
-    found = true;
+      console.log("");
+      console.log("=================================");
+      console.log("LIVE-240 DITEMUKAN");
+      console.log("=================================");
+      console.log(url);
+      console.log("=================================");
+    }
   }
+}
+
+/*
+ * Tangkap request sebelum membuka halaman.
+ */
+page.on("request", request => {
+  checkUrl(request.url(), "REQUEST");
+});
+
+page.on("response", response => {
+  checkUrl(response.url(), `RESPONSE ${response.status()}`);
 });
 
 console.log("Membuka Dailymotion Player Trans7...");
 
 await page.goto(
-  "https://sevenhub.id/live",
+  "https://geo.dailymotion.com/player/x15a7g.html?video=x8qckyq",
   {
     waitUntil: "domcontentloaded",
     timeout: 60000
@@ -47,23 +63,88 @@ await page.goto(
 );
 
 console.log("Player terbuka.");
-console.log("Menunggu cdndirector...");
 
-for (let i = 0; i < 12; i++) {
-  if (found) break;
+await page.waitForTimeout(10000);
+
+console.log("Mencari elemen video...");
+
+const videos = await page.locator("video").count();
+
+console.log("Jumlah video:", videos);
+
+for (let i = 0; i < videos; i++) {
+  try {
+    await page.locator("video").nth(i).evaluate(video => {
+      video.muted = true;
+
+      const promise = video.play();
+
+      if (promise) {
+        promise.catch(() => {});
+      }
+    });
+
+    console.log(`Video ${i} diperintahkan PLAY.`);
+  } catch (error) {
+    console.log(
+      `Gagal menjalankan video ${i}: ${error.message}`
+    );
+  }
+}
+
+console.log("Menunggu request live-240.m3u8...");
+
+for (let i = 0; i < 18; i++) {
+  if (found.size > 0) break;
 
   console.log(`Menunggu... ${i * 10}s`);
+
   await page.waitForTimeout(10000);
 }
 
 console.log("");
 console.log("=================================");
 console.log("HASIL");
-console.log("CDNDIRECTOR:", found);
+console.log("Jumlah URL ditemukan:", found.size);
 console.log("=================================");
 
-await browser.close();
-
-if (!found) {
+if (found.size === 0) {
+  await browser.close();
   process.exit(1);
 }
+
+/*
+ * Ambil URL pertama yang ditemukan.
+ */
+const streamUrl = [...found][0];
+
+console.log("");
+console.log("STREAM TRANS7:");
+console.log(streamUrl);
+console.log("");
+
+/*
+ * Pastikan folder playlist tersedia.
+ */
+fs.mkdirSync("playlist", {
+  recursive: true
+});
+
+/*
+ * Tulis playlist M3U.
+ */
+const playlist = `#EXTM3U
+#EXTINF:-1,Trans7
+${streamUrl}
+`;
+
+fs.writeFileSync(
+  "playlist/trans7.m3u",
+  playlist,
+  "utf8"
+);
+
+console.log("Playlist Trans7 berhasil diperbarui.");
+console.log("File: playlist/trans7.m3u");
+
+await browser.close();
