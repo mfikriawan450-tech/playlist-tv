@@ -39,7 +39,7 @@ page.on("request", request => {
 console.log("Membuka Dailymotion Player Trans7...");
 
 await page.goto(
-  "https://geo.dailymotion.com/player/x15a7g.html?video=x8qckyq",
+  "https://sevenhub.id/live",
   {
     waitUntil: "domcontentloaded",
     timeout: 60000
