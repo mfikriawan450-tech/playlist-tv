@@ -3,7 +3,8 @@ import { chromium } from "playwright";
 const browser = await chromium.launch({
   headless: true,
   args: [
-    "--autoplay-policy=no-user-gesture-required"
+    "--autoplay-policy=no-user-gesture-required",
+    "--disable-blink-features=AutomationControlled"
   ]
 });
 
@@ -20,16 +21,21 @@ const page = await context.newPage();
 
 const found = new Set();
 
-function checkUrl(url, type) {
+function handleUrl(url, type) {
   if (
-    url.includes("live-") ||
-    url.includes("dmcdn.net/sec2")
+    url.includes(".m3u8") &&
+    (
+      url.includes("live-") ||
+      url.includes("dmcdn.net/sec2")
+    )
   ) {
     if (!found.has(url)) {
       found.add(url);
 
+      console.log("");
       console.log("=================================");
       console.log(type);
+      console.log("URL STREAM:");
       console.log(url);
       console.log("=================================");
     }
@@ -37,13 +43,13 @@ function checkUrl(url, type) {
 }
 
 page.on("request", request => {
-  checkUrl(request.url(), "REQUEST");
+  handleUrl(request.url(), "M3U8 REQUEST");
 });
 
 page.on("response", response => {
-  checkUrl(
+  handleUrl(
     response.url(),
-    `RESPONSE ${response.status()}`
+    `M3U8 RESPONSE ${response.status()}`
   );
 });
 
@@ -59,7 +65,7 @@ await page.goto(
 
 console.log("Player terbuka.");
 
-await page.waitForTimeout(10000);
+await page.waitForTimeout(15000);
 
 console.log("Mencari elemen video...");
 
@@ -71,11 +77,13 @@ for (let i = 0; i < videos; i++) {
   try {
     await page.locator("video").nth(i).evaluate(video => {
       video.muted = true;
+      video.autoplay = true;
+      video.setAttribute("playsinline", "");
 
-      const p = video.play();
+      const promise = video.play();
 
-      if (p) {
-        p.catch(() => {});
+      if (promise) {
+        promise.catch(() => {});
       }
     });
 
@@ -88,10 +96,18 @@ for (let i = 0; i < videos; i++) {
   }
 }
 
-console.log("Menunggu HLS.js...");
+console.log("Menunggu request HLS...");
 
-await page.waitForTimeout(90000);
+for (let i = 0; i < 12; i++) {
+  console.log(`Menunggu... ${i * 10}s`);
+  await page.waitForTimeout(10000);
 
+  if (found.size > 0) {
+    break;
+  }
+}
+
+console.log("");
 console.log("=================================");
 console.log("HASIL");
 console.log("Jumlah URL ditemukan:", found.size);
@@ -102,3 +118,7 @@ for (const url of found) {
 }
 
 await browser.close();
+
+if (found.size === 0) {
+  process.exit(1);
+}
