@@ -6,26 +6,34 @@ const browser = await chromium.launch({
 
 const page = await browser.newPage();
 
+let authUrl = null;
+
 page.on("response", async (response) => {
   const url = response.url();
 
   if (
-    url.includes(
-      "dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8"
-    )
+    url.includes("dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8")
   ) {
-    console.log("=================================");
-    console.log("MANIFEST RESPONSE:", response.status());
-    console.log("=================================");
+    console.log("MANIFEST:", response.status());
 
     try {
       const body = await response.text();
 
-      console.log("===== ISI MANIFEST =====");
-      console.log(body);
-      console.log("========================");
+      const match = body.match(
+        /https:\/\/dmxleo\.dailymotion\.com\/cdn\/manifest\/video\/x8qckyq\.m3u8\?auth=[^"<]+/
+      );
+
+      if (match) {
+        authUrl = match[0]
+          .replace(/&amp;/g, "&");
+
+        console.log("=================================");
+        console.log("AUTH URL DITEMUKAN:");
+        console.log(authUrl);
+        console.log("=================================");
+      }
     } catch (error) {
-      console.log("Gagal membaca response:", error.message);
+      console.log("Gagal membaca manifest:", error.message);
     }
   }
 });
@@ -40,11 +48,29 @@ await page.goto(
   }
 );
 
-console.log("Player terbuka.");
 console.log("Menunggu manifest...");
 
-await page.waitForTimeout(30000);
+for (let i = 0; i < 60 && !authUrl; i++) {
+  await page.waitForTimeout(1000);
+}
+
+if (!authUrl) {
+  console.error("AUTH URL tidak ditemukan.");
+  await browser.close();
+  process.exit(1);
+}
+
+console.log("Meminta AUTH URL...");
+
+const response = await page.request.get(authUrl);
+
+console.log("AUTH RESPONSE STATUS:", response.status());
+
+const body = await response.text();
+
+console.log("=================================");
+console.log("ISI AUTH RESPONSE:");
+console.log(body);
+console.log("=================================");
 
 await browser.close();
-
-console.log("Selesai.");
