@@ -19,19 +19,26 @@ page.on("request", (request) => {
     url.includes("?sec=")
   ) {
     streamUrl = url;
-    console.log("URL Trans7 ditemukan:");
+
+    console.log("=================================");
+    console.log("URL TRANS7 DITEMUKAN:");
     console.log(streamUrl);
+    console.log("=================================");
   }
 });
 
-console.log("Membuka SevenHub...");
+console.log("Membuka Dailymotion Player Trans7...");
 
-await page.goto("https://sevenhub.id/live", {
-  waitUntil: "domcontentloaded",
-  timeout: 60000
-});
+await page.goto(
+  "https://geo.dailymotion.com/player/x15a7g.html?video=x8qckyq",
+  {
+    waitUntil: "domcontentloaded",
+    timeout: 60000
+  }
+);
 
-console.log("Menunggu player Trans7...");
+console.log("Player terbuka.");
+console.log("Menunggu URL stream...");
 
 for (let i = 0; i < 60 && !streamUrl; i++) {
   await page.waitForTimeout(1000);
