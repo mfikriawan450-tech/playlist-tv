@@ -1,66 +1,21 @@
-name: Update Trans7
+name: Test Trans7 URL
 
 on:
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
-  update:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install Playwright
+      - name: Test Trans7
         run: |
-          npm install playwright
-          npx playwright install chromium
-
-      - name: Update Trans7
-        run: |
-          node scripts/update-trans7.mjs
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add playlist/os4.m3u
-
-          if git diff --cached --quiet; then
-            echo "Tidak ada perubahan pada os4.m3u."
-            exit 0
-          fi
-
-          git commit -m "Update Trans7 stream"
-
-          for i in 1 2 3 4 5; do
-            echo "================================="
-            echo "PUSH ATTEMPT $i"
-            echo "================================="
-
-            git fetch origin main
-
-            git rebase origin/main
-
-            if git push origin HEAD:main; then
-              echo "Push berhasil."
-              exit 0
-            fi
-
-            echo "Push gagal. Menunggu sebelum mencoba lagi..."
-            sleep 5
-          done
-
-          echo "GAGAL: Tidak dapat melakukan push setelah 5 percobaan."
-          exit 1
+          node scripts/test-trans7-url.mjs
