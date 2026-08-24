@@ -31,7 +31,7 @@ let trans7Url = null;
 let lastUrl = null;
 
 // =====================================================
-// DETEKSI REQUEST
+// DETEKSI REQUEST MASTER PLAYLIST
 // =====================================================
 
 page.on("request", request => {
@@ -50,7 +50,7 @@ page.on("request", request => {
 });
 
 // =====================================================
-// DETEKSI RESPONSE
+// DETEKSI RESPONSE MASTER PLAYLIST
 // =====================================================
 
 page.on("response", response => {
@@ -65,6 +65,8 @@ page.on("response", response => {
     console.log("STATUS:", response.status());
     console.log(url);
 
+    // Prioritas utama:
+    // gunakan URL yang benar-benar mendapatkan HTTP 200
     if (response.status() === 200) {
       trans7Url = url;
 
@@ -77,7 +79,7 @@ page.on("response", response => {
 });
 
 // =====================================================
-// BUKA TRANS7
+// BUKA HALAMAN TRANS7
 // =====================================================
 
 console.log("Membuka Live Trans7 20Detik...");
@@ -91,7 +93,6 @@ try {
   console.log("Halaman Trans7 terbuka.");
 
 } catch (error) {
-
   console.log("");
   console.log("Navigasi mengalami masalah:");
   console.log(error.message);
@@ -106,31 +107,25 @@ try {
 await page.waitForTimeout(10000);
 
 // =====================================================
-// PLAY VIDEO
+// PLAY SEMUA VIDEO
 // =====================================================
 
 console.log("");
 console.log("Mencari video player...");
 
 for (const frame of page.frames()) {
-
   try {
-
     const videos = frame.locator("video");
     const count = await videos.count();
 
     if (count > 0) {
-
       console.log(
         `Frame memiliki ${count} video.`
       );
 
       for (let i = 0; i < count; i++) {
-
         try {
-
           await videos.nth(i).evaluate(video => {
-
             video.muted = true;
 
             const promise = video.play();
@@ -141,7 +136,6 @@ for (const frame of page.frames()) {
             ) {
               promise.catch(() => {});
             }
-
           });
 
           console.log(
@@ -149,12 +143,10 @@ for (const frame of page.frames()) {
           );
 
         } catch (error) {
-
           console.log(
             `Video ${i} gagal play:`,
             error.message
           );
-
         }
       }
     }
@@ -167,51 +159,37 @@ for (const frame of page.frames()) {
 // =====================================================
 
 try {
-
-  await page.mouse.click(
-    640,
-    360
-  );
-
-  console.log(
-    "Player diklik."
-  );
-
+  await page.mouse.click(640, 360);
+  console.log("Player diklik.");
 } catch {}
 
 // =====================================================
-// TUNGGU MASTER 200
+// TUNGGU MASTER PLAYLIST
 // =====================================================
 
 console.log("");
-console.log(
-  "Menunggu URL HLS Trans7..."
-);
+console.log("Menunggu HLS Trans7...");
 
 for (
   let i = 0;
   i < 45 && !trans7Url;
   i++
 ) {
-
   await page.waitForTimeout(2000);
 
   if (i % 5 === 0) {
-
     console.log(
       `Menunggu HLS... ${i * 2}s`
     );
-
   }
 }
 
 // =====================================================
 // JIKA RESPONSE 200 TIDAK TERTANGKAP,
-// PAKAI REQUEST TERBARU
+// GUNAKAN REQUEST MASTER TERBARU
 // =====================================================
 
 if (!trans7Url && lastUrl) {
-
   console.log("");
   console.log(
     "Response 200 tidak tertangkap."
@@ -231,7 +209,7 @@ if (!trans7Url && lastUrl) {
 await browser.close();
 
 // =====================================================
-// HASIL
+// HASIL DETEKSI
 // =====================================================
 
 console.log("");
@@ -240,7 +218,6 @@ console.log("HASIL DETEKSI TRANS7");
 console.log("=================================");
 
 if (!trans7Url) {
-
   console.error(
     "GAGAL: URL HLS Trans7 tidak ditemukan."
   );
@@ -249,15 +226,14 @@ if (!trans7Url) {
 }
 
 console.log("");
-console.log("URL TRANS7:");
+console.log("URL HLS TRANS7:");
 console.log(trans7Url);
 
 // =====================================================
-// CEK PLAYLIST
+// CEK FILE PLAYLIST
 // =====================================================
 
 if (!fs.existsSync(PLAYLIST)) {
-
   console.error("");
   console.error(
     `File tidak ditemukan: ${PLAYLIST}`
@@ -272,14 +248,13 @@ let playlist = fs.readFileSync(
 );
 
 // =====================================================
-// BLOK TRANS7
+// CARI BLOK TRANS7
 // =====================================================
 
 const trans7Regex =
-  /#EXTINF:-1,Trans7\s*\n(?:#EXTVLCOPT:[^\r\n]*\r?\n)*(https?:\/\/[^\r\n]*)/i;
+  /(#EXTINF:-1,Trans7\s*\n)(?:#EXTVLCOPT:[^\r\n]*\r?\n)*(https?:\/\/[^\r\n]*)/i;
 
 if (!trans7Regex.test(playlist)) {
-
   console.error("");
   console.error(
     "Blok Trans7 tidak ditemukan di os4.m3u"
@@ -289,7 +264,7 @@ if (!trans7Regex.test(playlist)) {
 }
 
 // =====================================================
-// BLOK BARU TRANS7
+// BLOK TRANS7 BARU
 // =====================================================
 
 const trans7Block =
@@ -299,7 +274,7 @@ const trans7Block =
   `${trans7Url}`;
 
 // =====================================================
-// UPDATE
+// UPDATE URL TRANS7
 // =====================================================
 
 playlist = playlist.replace(
@@ -308,7 +283,7 @@ playlist = playlist.replace(
 );
 
 // =====================================================
-// SIMPAN
+// SIMPAN PLAYLIST
 // =====================================================
 
 fs.writeFileSync(
@@ -317,10 +292,17 @@ fs.writeFileSync(
   "utf8"
 );
 
+// =====================================================
+// SELESAI
+// =====================================================
+
 console.log("");
 console.log("=================================");
 console.log("PLAYLIST BERHASIL DIPERBARUI");
 console.log("=================================");
+console.log("");
+console.log("File:");
+console.log(PLAYLIST);
 console.log("");
 console.log("Trans7:");
 console.log(trans7Url);
