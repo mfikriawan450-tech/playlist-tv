@@ -3,22 +3,22 @@
 https://livestream.transtv.co.id/stream/live/ttv.m3u8
 
 #EXTINF:-1,Trans7
-https://live.eu-north-1a.cf.dmcdn.net/sec2(LIDYUpY7Nb5-Lkb4HWRbXlCzrNK1cbgDu9IRQh5p99ag3TTARp1nm61eS4QjWts_ToYD9wdLHyraIKy1w96MiCnd-k3Kr4dLlTj4xSAEgvPzTJjUasHEbk7WL1Jn59XB)/dm/3/x8qckyq/d/live-480.m3u8#cell=lcf-eu-north-1a
+https://video.detik.com/trans7-sec/smil:trans7.smil/playlist.m3u8?wowzatokenstarttime=0&wowzatokenendtime=1787570009556&wowzatokenhash=JVURLtfSgrkOBjFcUBqgFCiIFzuOWgpOpykcZp9lRN0%3D
 
 #EXTINF:-1,RCTI
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787602314~hmac=41a9131cb4df804e68dafdb1f41b09550730daea036b69850a7ce72dbe363f56
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787605086~hmac=d004afd20d416d4318f261e9f0f7dad27394aecd315f724d946913b402fc9863
 
 #EXTINF:-1,MNCTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787602327~hmac=6d93ff3d1e63df7a87fa1753f6f9df6db3d93f84e225ad03d1925ac73d58a491
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787605093~hmac=a40607913bccb496a6dcc5f26253a54725acdddd9a803ca224177de41f57c643
 
 #EXTINF:-1,GTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787602333~hmac=25a48c516f8d9f014cf571d85cc755b130ec5721f96051bf25ffa71978f1fc75
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787605101~hmac=4d3fb76532b5e489321fe119a2ee381a208138ed82dc543b8f0e89d73ee9858e
 
 #EXTINF:-1,TVRI Nasional
 https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
