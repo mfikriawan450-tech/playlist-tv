@@ -1,23 +1,32 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
+const playlistPath = "playlist/os4.m3u";
+
 const channels = [
   {
     name: "RCTI",
     url: "https://www.rctiplus.com/tv/rcti",
-    pattern: /https:\/\/rcti-linier\.rctiplus\.id\/rcti-sdi\.m3u8\?hdnts=/
+    pattern: /https:\/\/rcti-linier\.rctiplus\.id\/rcti-sdi\.m3u8\?hdnts=[^\s"']+/
   },
   {
     name: "MNCTV",
     url: "https://www.rctiplus.com/tv/mnctv",
-    pattern: /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=/
+    pattern: /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=[^\s"']+/
   },
   {
     name: "GTV",
     url: "https://www.rctiplus.com/tv/gtv",
-    pattern: /https:\/\/gtv-linier\.rctiplus\.id\/gtv-sdi\.m3u8\?hdnts=/
+    pattern: /https:\/\/gtv-linier\.rctiplus\.id\/gtv-sdi\.m3u8\?hdnts=[^\s"']+/
   }
 ];
+
+if (!fs.existsSync(playlistPath)) {
+  console.error(`File tidak ditemukan: ${playlistPath}`);
+  process.exit(1);
+}
+
+let playlist = fs.readFileSync(playlistPath, "utf8");
 
 const browser = await chromium.launch({
   headless: true
@@ -35,13 +44,11 @@ for (const channel of channels) {
   page.on("request", (request) => {
     const url = request.url();
 
-    if (channel.pattern.test(url)) {
-      if (!streamUrl) {
-        streamUrl = url;
+    if (channel.pattern.test(url) && !streamUrl) {
+      streamUrl = url;
 
-        console.log(`${channel.name} STREAM DITEMUKAN:`);
-        console.log(streamUrl);
-      }
+      console.log(`${channel.name} STREAM DITEMUKAN:`);
+      console.log(streamUrl);
     }
   });
 
@@ -63,47 +70,69 @@ for (const channel of channels) {
 
   await page.close();
 
-  if (streamUrl) {
-    results.push({
-      name: channel.name,
-      url: streamUrl
-    });
-  } else {
+  if (!streamUrl) {
     console.error(
       `${channel.name}: URL stream tidak ditemukan.`
     );
+
+    await browser.close();
+    process.exit(1);
   }
+
+  results.push({
+    name: channel.name,
+    url: streamUrl
+  });
 }
 
 await browser.close();
 
-if (results.length !== channels.length) {
-  console.error(
-    `Hanya ${results.length}/${channels.length} channel ditemukan.`
-  );
-  process.exit(1);
+console.log("=================================");
+console.log("SEMUA STREAM BERHASIL DITEMUKAN");
+console.log("=================================");
+
+for (const result of results) {
+  console.log(`${result.name}: ${result.url}`);
 }
 
-const playlist = [
-  "#EXTM3U",
-  "",
-  ...results.flatMap((channel) => [
-    `#EXTINF:-1 tvg-id="${channel.name}" tvg-name="${channel.name}" group-title="Indonesia",${channel.name}`,
-    channel.url,
-    ""
-  ])
-].join("\n");
+/*
+ * Ganti hanya URL stream di masing-masing blok.
+ * Header #EXTVLCOPT dan channel lain tidak disentuh.
+ */
 
-fs.mkdirSync("playlist", {
-  recursive: true
-});
+for (const result of results) {
+  const escapedName = result.name.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+
+  const blockRegex = new RegExp(
+    `(#[#]EXTINF:-1,${escapedName}\\r?\\n` +
+    `(?:#EXTVLCOPT:[^\\r\\n]*\\r?\\n)*)(https?://[^\\r\\n]+)`
+  );
+
+  if (!blockRegex.test(playlist)) {
+    console.error(
+      `Blok ${result.name} tidak ditemukan di ${playlistPath}`
+    );
+
+    process.exit(1);
+  }
+
+  playlist = playlist.replace(
+    blockRegex,
+    `$1${result.url}`
+  );
+
+  console.log(`${result.name} URL berhasil diperbarui.`);
+}
 
 fs.writeFileSync(
-  "playlist/tv.m3u",
-  playlist
+  playlistPath,
+  playlist,
+  "utf8"
 );
 
 console.log("=================================");
-console.log("PLAYLIST BERHASIL DIPERBARUI");
+console.log("os4.m3u BERHASIL DIPERBARUI");
 console.log("=================================");
-console.log(playlist);
