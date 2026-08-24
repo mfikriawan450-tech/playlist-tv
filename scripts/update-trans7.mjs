@@ -4,14 +4,34 @@ import fs from "fs";
 const PAGE_URL = "https://sevenhub.id/live";
 const PLAYLIST = "os4.m3u";
 
-let trans7Url = null;
+// =====================================================
+// KONFIGURASI
+// =====================================================
+
+const TARGET_VIDEO_ID = "x8qckyq";
+
+// Prioritas resolusi
+const RESOLUTION_PRIORITY = [
+  720,
+  1080,
+  576,
+  480,
+  360,
+  240
+];
+
+// =====================================================
+// BROWSER
+// =====================================================
 
 const browser = await chromium.launch({
   headless: true,
+
   args: [
     "--autoplay-policy=no-user-gesture-required",
     "--disable-blink-features=AutomationControlled",
-    "--no-sandbox"
+    "--no-sandbox",
+    "--disable-dev-shm-usage"
   ]
 });
 
@@ -30,50 +50,106 @@ const context = await browser.newContext({
 const page = await context.newPage();
 
 // =====================================================
-// DETEKSI M3U8 DAILYMOTION
+// PENYIMPAN REQUEST M3U8
+// =====================================================
+
+const streams = new Map();
+
+let selectedUrl = null;
+
+// =====================================================
+// FUNGSI IDENTIFIKASI RESOLUSI
+// =====================================================
+
+function getResolution(url) {
+  const match = url.match(
+    /(?:live-|[_-])(\d{3,4})(?:p)?\.m3u8/i
+  );
+
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+
+  return null;
+}
+
+// =====================================================
+// CEK APAKAH URL ADALAH TARGET DAILYMOTION
+// =====================================================
+
+function isTargetStream(url) {
+  return (
+    url.includes("dmcdn.net") &&
+    url.includes(".m3u8") &&
+    url.includes(TARGET_VIDEO_ID)
+  );
+}
+
+// =====================================================
+// SIMPAN STREAM
+// =====================================================
+
+function registerStream(url) {
+  if (!isTargetStream(url)) {
+    return;
+  }
+
+  const resolution = getResolution(url);
+
+  const key = resolution
+    ? String(resolution)
+    : "unknown";
+
+  streams.set(key, {
+    url,
+    resolution
+  });
+
+  console.log("");
+  console.log("M3U8 DAILYMOTION DITEMUKAN");
+  console.log("---------------------------------");
+  console.log("Resolusi :", resolution ?? "unknown");
+  console.log("URL      :", url);
+
+  if (resolution === 720) {
+    console.log("");
+    console.log(">>> TARGET 720P DITEMUKAN! <<<");
+    console.log("");
+  }
+}
+
+// =====================================================
+// REQUEST
 // =====================================================
 
 page.on("request", request => {
-  const url = request.url();
-
-  if (
-    url.includes("dmcdn.net") &&
-    url.includes(".m3u8")
-  ) {
-    console.log("");
-    console.log("=================================");
-    console.log("M3U8 DAILYMOTION DITEMUKAN");
-    console.log("=================================");
-    console.log(url);
-
-    if (!trans7Url) {
-      trans7Url = url;
-    }
-
-    console.log("TARGET TRANS7 DITEMUKAN!");
-  }
+  registerStream(request.url());
 });
 
 // =====================================================
-// DETEKSI RESPONSE M3U8
+// RESPONSE
 // =====================================================
 
 page.on("response", response => {
   const url = response.url();
 
-  if (
-    url.includes("dmcdn.net") &&
-    url.includes(".m3u8")
-  ) {
-    console.log("");
-    console.log("M3U8 RESPONSE");
-    console.log("STATUS:", response.status());
-    console.log(url);
+  if (!isTargetStream(url)) {
+    return;
+  }
 
-    if (response.status() === 200) {
-      trans7Url = url;
+  const status = response.status();
 
-      console.log("TARGET TRANS7 RESPONSE 200!");
+  console.log("");
+  console.log("M3U8 RESPONSE");
+  console.log("STATUS:", status);
+  console.log("URL:", url);
+
+  if (status === 200) {
+    registerStream(url);
+
+    if (getResolution(url) === 720) {
+      console.log("");
+      console.log("TARGET 720P RESPONSE 200!");
     }
   }
 });
@@ -82,26 +158,27 @@ page.on("response", response => {
 // BUKA SEVENHUB
 // =====================================================
 
-console.log("");
-console.log("=================================");
-console.log("MEMBUKA SEVENHUB");
-console.log("=================================");
-console.log(PAGE_URL);
-
 try {
+  console.log("");
+  console.log("=================================");
+  console.log("MEMBUKA SEVENHUB");
+  console.log("=================================");
+  console.log(PAGE_URL);
+
   try {
     await page.goto(PAGE_URL, {
       waitUntil: "domcontentloaded",
       timeout: 60000
     });
 
+    console.log("");
     console.log("SevenHub berhasil dibuka.");
   } catch (error) {
     console.log("");
-    console.log("Navigasi mengalami timeout/error:");
+    console.log("Navigasi mengalami masalah:");
     console.log(error.message);
     console.log("");
-    console.log("Tetap melanjutkan pemantauan request...");
+    console.log("Request tetap dipantau...");
   }
 
   // ===================================================
@@ -110,17 +187,29 @@ try {
 
   console.log("");
   console.log("Menunggu player...");
-  await page.waitForTimeout(3000);
 
-  // ===================================================
-  // BERIKAN WAKTU STREAM DIMULAI
-  // ===================================================
+  await page.waitForTimeout(5000);
 
+  console.log("");
   console.log("Tunggu 10 detik agar stream mulai...");
+
   await page.waitForTimeout(10000);
 
   // ===================================================
-  // CARI VIDEO PLAYER DI SEMUA FRAME
+  // FRAME
+  // ===================================================
+
+  console.log("");
+  console.log("=================================");
+  console.log("FRAME YANG TERBUKA");
+  console.log("=================================");
+
+  for (const frame of page.frames()) {
+    console.log(frame.url());
+  }
+
+  // ===================================================
+  // CARI VIDEO
   // ===================================================
 
   console.log("");
@@ -128,19 +217,18 @@ try {
 
   for (const frame of page.frames()) {
     try {
-      const videoCount = await frame
-        .locator("video")
-        .count();
+      const videos = frame.locator("video");
 
-      if (videoCount > 0) {
+      const count = await videos.count();
+
+      if (count > 0) {
         console.log(
-          `Frame memiliki ${videoCount} video.`
+          `Frame memiliki ${count} video.`
         );
 
-        for (let i = 0; i < videoCount; i++) {
+        for (let i = 0; i < count; i++) {
           try {
-            await frame
-              .locator("video")
+            await videos
               .nth(i)
               .evaluate(video => {
                 video.muted = true;
@@ -175,26 +263,34 @@ try {
 
   try {
     await page.mouse.click(640, 360);
+
+    console.log("");
     console.log("Player diklik.");
   } catch {}
 
   // ===================================================
-  // TUNGGU M3U8
+  // TUNGGU REQUEST
   // ===================================================
 
   console.log("");
-  console.log("Menunggu M3U8 Dailymotion...");
+  console.log("=================================");
+  console.log("MENUNGGU STREAM DAILYMOTION");
+  console.log("=================================");
 
-  for (
-    let i = 0;
-    i < 60 && !trans7Url;
-    i++
-  ) {
+  for (let i = 0; i < 60; i++) {
     await page.waitForTimeout(2000);
+
+    // Kalau 720 sudah ditemukan,
+    // kita tidak perlu menunggu terlalu lama.
+    if (streams.has("720")) {
+      console.log("");
+      console.log("720P sudah ditemukan.");
+      break;
+    }
 
     if (i % 5 === 0) {
       console.log(
-        `Menunggu M3U8... ${i * 2}s`
+        `Menunggu... ${i * 2}s`
       );
     }
   }
@@ -205,6 +301,7 @@ try {
   console.error(error.message);
 
   await browser.close();
+
   process.exit(1);
 }
 
@@ -215,7 +312,7 @@ try {
 await browser.close();
 
 // =====================================================
-// HASIL DETEKSI
+// HASIL STREAM
 // =====================================================
 
 console.log("");
@@ -223,17 +320,97 @@ console.log("=================================");
 console.log("HASIL DETEKSI TRANS7");
 console.log("=================================");
 
-if (!trans7Url) {
+if (streams.size === 0) {
+  console.error("");
   console.error(
-    "GAGAL: M3U8 Dailymotion Trans7 tidak ditemukan."
+    "GAGAL: Tidak ada stream Dailymotion ditemukan."
   );
 
   process.exit(1);
 }
 
+// =====================================================
+// TAMPILKAN SEMUA STREAM
+// =====================================================
+
 console.log("");
-console.log("URL TRANS7:");
-console.log(trans7Url);
+console.log("STREAM YANG TERDETEKSI:");
+
+for (const stream of streams.values()) {
+  console.log(
+    `${stream.resolution ?? "unknown"}p : ${stream.url}`
+  );
+}
+
+// =====================================================
+// PILIH RESOLUSI
+// =====================================================
+
+// 1. Cari 720p terlebih dahulu
+for (const resolution of RESOLUTION_PRIORITY) {
+  const stream = streams.get(String(resolution));
+
+  if (stream) {
+    selectedUrl = stream.url;
+
+    console.log("");
+    console.log(
+      `RESOLUSI ${resolution}P DIPILIH.`
+    );
+
+    break;
+  }
+}
+
+// =====================================================
+// FALLBACK
+// =====================================================
+
+if (!selectedUrl) {
+  const validStreams = [...streams.values()]
+    .filter(stream => stream.resolution)
+    .sort(
+      (a, b) =>
+        b.resolution - a.resolution
+    );
+
+  if (validStreams.length > 0) {
+    selectedUrl = validStreams[0].url;
+
+    console.log("");
+    console.log(
+      `720P tidak ditemukan. ` +
+      `Menggunakan ${validStreams[0].resolution}P.`
+    );
+  }
+}
+
+// =====================================================
+// JIKA RESOLUSI TIDAK TERBACA
+// =====================================================
+
+if (!selectedUrl) {
+  selectedUrl = [...streams.values()][0].url;
+
+  console.log("");
+  console.log(
+    "Resolusi tidak dapat dibaca."
+  );
+
+  console.log(
+    "Menggunakan stream Dailymotion yang ditemukan."
+  );
+}
+
+// =====================================================
+// HASIL AKHIR
+// =====================================================
+
+console.log("");
+console.log("=================================");
+console.log("STREAM TRANS7 TERPILIH");
+console.log("=================================");
+console.log(selectedUrl);
 
 // =====================================================
 // CEK PLAYLIST
@@ -258,7 +435,7 @@ let playlist = fs.readFileSync(
 // =====================================================
 
 const trans7Regex =
-  /(#EXTINF:-1,Trans7\s*\n)([^\r\n]*)/i;
+  /(#EXTINF:-1,Trans7\s*\n)(?:#EXTVLCOPT:[^\r\n]*\r?\n)*([^\r\n]*)/i;
 
 if (!trans7Regex.test(playlist)) {
   console.error("");
@@ -270,16 +447,16 @@ if (!trans7Regex.test(playlist)) {
 }
 
 // =====================================================
-// UPDATE URL TRANS7
+// UPDATE URL
 // =====================================================
 
 playlist = playlist.replace(
   trans7Regex,
-  `$1${trans7Url}`
+  `$1${selectedUrl}`
 );
 
 // =====================================================
-// SIMPAN PLAYLIST
+// SIMPAN
 // =====================================================
 
 fs.writeFileSync(
@@ -287,6 +464,10 @@ fs.writeFileSync(
   playlist,
   "utf8"
 );
+
+// =====================================================
+// SELESAI
+// =====================================================
 
 console.log("");
 console.log("=================================");
@@ -297,4 +478,4 @@ console.log("File:");
 console.log(PLAYLIST);
 console.log("");
 console.log("Trans7:");
-console.log(trans7Url);
+console.log(selectedUrl);
