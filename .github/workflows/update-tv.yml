@@ -1,0 +1,97 @@
+name: Update TV Streams
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-tv-streams
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==========================================
+      # NODE
+      # ==========================================
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ==========================================
+      # PLAYWRIGHT
+      # ==========================================
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install chromium
+
+      # ==========================================
+      # UPDATE RCTI / MNCTV / GTV
+      # ==========================================
+
+      - name: Update RCTI MNCTV GTV
+        run: |
+          node scripts/update-rcti.mjs
+
+      # ==========================================
+      # UPDATE TRANS7
+      # ==========================================
+
+      - name: Update Trans7
+        run: |
+          node scripts/update-trans7.mjs
+
+      # ==========================================
+      # SHOW RESULT
+      # ==========================================
+
+      - name: Show updated playlist
+        run: |
+          echo "================================="
+          echo "ISI os4.m3u"
+          echo "================================="
+          cat os4.m3u
+
+      # ==========================================
+      # COMMIT & PUSH
+      # ==========================================
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add os4.m3u
+
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan pada os4.m3u."
+            exit 0
+          fi
+
+          git commit -m "Update TV streams"
+
+          git push origin HEAD:main
+
+          echo "================================="
+          echo "PUSH BERHASIL"
+          echo "================================="
