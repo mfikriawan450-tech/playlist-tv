@@ -1,45 +1,59 @@
 import { chromium } from "playwright";
-import fs from "fs";
-
-const playlistPath = "os4.m3u";
 
 const browser = await chromium.launch({
   headless: true
 });
 
-const page = await browser.newPage();
+const page = await browser.newPage({
+  viewport: {
+    width: 1280,
+    height: 720
+  }
+});
 
-let trans7Url = null;
+let manifestUrl = null;
+let streamUrl = null;
 
 console.log("Membuka Dailymotion...");
 
 page.on("response", async (response) => {
   const url = response.url();
 
-  // Kita hanya mencari manifest HLS yang sudah memiliki parameter sec
+  // Manifest yang sudah diberi parameter SEC
   if (
     url.includes("x8qckyq.m3u8?sec=") &&
     response.status() === 200
   ) {
-    console.log("MANIFEST HLS TRANS7 DITEMUKAN:");
+    console.log("");
+    console.log("=================================");
+    console.log("MANIFEST SEC TRANS7 DITEMUKAN");
+    console.log("=================================");
     console.log(url);
+
+    manifestUrl = url;
 
     try {
       const body = await response.text();
 
-      const matches = body.match(
-        /https:\/\/[^"\s]+\/live-480\.m3u8#[^\s"]+/
+      console.log("Ukuran manifest:", body.length);
+
+      // Ambil URL live-480
+      const match = body.match(
+        /https:\/\/[^"\s]+\/live-480\.m3u8(?:#[^\s"]+)?/
       );
 
-      if (matches && !trans7Url) {
-        trans7Url = matches[0];
+      if (match && !streamUrl) {
+        streamUrl = match[0];
 
-        console.log("TRANS7 STREAM DITEMUKAN:");
-        console.log(trans7Url);
+        console.log("");
+        console.log("=================================");
+        console.log("STREAM TRANS7 DITEMUKAN");
+        console.log("=================================");
+        console.log(streamUrl);
       }
     } catch (error) {
       console.log(
-        "Gagal membaca response manifest:",
+        "Gagal membaca manifest:",
         error.message
       );
     }
@@ -57,11 +71,63 @@ try {
 
   console.log("Player terbuka.");
 } catch (error) {
-  console.log("Gagal membuka player:", error.message);
+  console.error(
+    "Gagal membuka player:",
+    error.message
+  );
+
+  await browser.close();
+  process.exit(1);
 }
 
-// Beri waktu untuk Dailymotion membuat request HLS
-for (let i = 0; i < 60 && !trans7Url; i++) {
+// Tunggu player selesai inisialisasi
+console.log("Menunggu player...");
+await page.waitForTimeout(5000);
+
+// Cek video element
+const videos = await page.locator("video").count();
+
+console.log("Jumlah video:", videos);
+
+// Paksa player mulai
+if (videos > 0) {
+  for (let i = 0; i < videos; i++) {
+    try {
+      const video = page.locator("video").nth(i);
+
+      await video.evaluate((element) => {
+        element.muted = true;
+
+        const result = element.play();
+
+        if (result && typeof result.catch === "function") {
+          result.catch(() => {});
+        }
+      });
+
+      console.log(`Video ${i} diperintahkan play.`);
+    } catch (error) {
+      console.log(
+        `Video ${i} gagal play:`,
+        error.message
+      );
+    }
+  }
+}
+
+// Klik area player juga
+try {
+  await page.mouse.click(640, 360);
+  console.log("Player diklik.");
+} catch (error) {
+  console.log(
+    "Klik player gagal:",
+    error.message
+  );
+}
+
+// Beri waktu HLS.js membuat manifest SEC
+for (let i = 0; i < 90 && !streamUrl; i++) {
   await page.waitForTimeout(1000);
 
   if (i % 5 === 0) {
@@ -71,49 +137,30 @@ for (let i = 0; i < 60 && !trans7Url; i++) {
 
 await browser.close();
 
-if (!trans7Url) {
-  console.error("GAGAL: Stream Trans7 tidak ditemukan.");
-  process.exit(1);
+console.log("");
+console.log("=================================");
+console.log("HASIL");
+console.log("=================================");
+
+if (manifestUrl) {
+  console.log("Manifest SEC: DITEMUKAN");
+} else {
+  console.log("Manifest SEC: TIDAK DITEMUKAN");
 }
 
-console.log("=================================");
-console.log("TRANS7 STREAM BERHASIL DITEMUKAN");
-console.log("=================================");
-console.log(trans7Url);
+if (streamUrl) {
+  console.log("Stream 480p: DITEMUKAN");
+  console.log(streamUrl);
 
-// Baca playlist utama
-if (!fs.existsSync(playlistPath)) {
-  console.error(`File tidak ditemukan: ${playlistPath}`);
+  console.log("");
+  console.log("TRANS7 BERHASIL DIDETEKSI");
+} else {
+  console.log("Stream 480p: TIDAK DITEMUKAN");
+
+  console.error("");
+  console.error(
+    "GAGAL: Stream Trans7 tidak ditemukan."
+  );
+
   process.exit(1);
 }
-
-let playlist = fs.readFileSync(
-  playlistPath,
-  "utf8"
-);
-
-// Cari blok Trans7
-const trans7Regex =
-  /(#EXTINF:-1,Trans7\r?\n)(https?:\/\/[^\r\n]+)/;
-
-if (!trans7Regex.test(playlist)) {
-  console.error("Blok Trans7 tidak ditemukan di os4.m3u");
-  process.exit(1);
-}
-
-// Ganti URL Trans7 saja
-playlist = playlist.replace(
-  trans7Regex,
-  `$1${trans7Url}`
-);
-
-fs.writeFileSync(
-  playlistPath,
-  playlist,
-  "utf8"
-);
-
-console.log("=================================");
-console.log("os4.m3u BERHASIL DIPERBARUI");
-console.log("=================================");
-console.log("Trans7 URL berhasil diganti.");
