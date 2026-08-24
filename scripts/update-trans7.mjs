@@ -1,4 +1,8 @@
 import { chromium } from "playwright";
+import fs from "fs";
+
+const PAGE_URL = "https://20.detik.com/live/trans-7";
+const PLAYLIST = "playlist/os4.m3u";
 
 const browser = await chromium.launch({
   headless: true,
@@ -9,162 +13,129 @@ const browser = await chromium.launch({
 });
 
 const context = await browser.newContext({
-  viewport: {
-    width: 1280,
-    height: 720
-  },
   userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+    "AppleWebKit/537.36 (KHTML, like Gecko) " +
+    "Chrome/151.0.0.0 Safari/537.36"
 });
 
 const page = await context.newPage();
 
-console.log("Membuka Live Trans7 20Detik...");
+let trans7Url = null;
 
-page.on("request", (request) => {
+page.on("request", request => {
   const url = request.url();
 
   if (
-    url.includes(".m3u8") ||
-    url.includes("chunklist") ||
-    url.includes("video.detik.com")
+    url.includes("video.detik.com/trans7-sec/") &&
+    url.includes("playlist.m3u8")
   ) {
-    console.log("");
-    console.log("REQUEST:");
+    console.log("TRANS7 HLS DITEMUKAN:");
     console.log(url);
-  }
-});
 
-page.on("response", (response) => {
-  const url = response.url();
-
-  if (
-    url.includes(".m3u8") ||
-    url.includes("chunklist")
-  ) {
-    console.log("");
-    console.log("RESPONSE:");
-    console.log(response.status(), url);
+    trans7Url = url;
   }
 });
 
 try {
-await page.goto(
-  "https://20.detik.com/live/trans-7",
-  {
+  console.log("Membuka Live Trans7 20Detik...");
+
+  await page.goto(PAGE_URL, {
     waitUntil: "commit",
     timeout: 30000
+  });
+
+  console.log("Halaman terbuka.");
+
+  // Beri waktu iframe/player dimuat
+  await page.waitForTimeout(8000);
+
+  // Cari semua frame/player
+  for (const frame of page.frames()) {
+    try {
+      const videos = await frame.locator("video").count();
+
+      if (videos > 0) {
+        console.log(
+          `Frame ${frame.url()} memiliki ${videos} video.`
+        );
+
+        for (let i = 0; i < videos; i++) {
+          try {
+            await frame.locator("video").nth(i).evaluate(video => {
+              video.muted = true;
+              video.play().catch(() => {});
+            });
+          } catch {}
+        }
+      }
+    } catch {}
   }
-);
 
-console.log("Navigasi halaman berhasil dimulai.");
+  // Klik video jika memungkinkan
+  try {
+    await page.mouse.click(640, 360);
+  } catch {}
 
-  console.log("Halaman Trans7 mulai dimuat.");
+  // Tunggu request HLS
+  for (let i = 0; i < 30 && !trans7Url; i++) {
+    console.log(`Menunggu HLS... ${i * 2}s`);
+    await page.waitForTimeout(2000);
+  }
+
 } catch (error) {
-  console.error("Gagal membuka halaman:", error.message);
+  console.error("Gagal membuka halaman:");
+  console.error(error.message);
+
   await browser.close();
   process.exit(1);
 }
 
-// Beri waktu halaman membangun iframe/player
-await page.waitForTimeout(10000);
-
-console.log("");
-console.log("=================================");
-console.log("FRAME YANG TERDETEKSI");
-console.log("=================================");
-
-for (const frame of page.frames()) {
-  console.log("FRAME:", frame.url());
-}
-
-console.log("");
-console.log("=================================");
-console.log("IFRAME");
-console.log("=================================");
-
-const iframes = await page.locator("iframe").count();
-
-console.log("Jumlah iframe:", iframes);
-
-for (let i = 0; i < iframes; i++) {
-  try {
-    const src = await page
-      .locator("iframe")
-      .nth(i)
-      .getAttribute("src");
-
-    console.log(`iframe ${i}:`, src);
-  } catch {}
-}
-
-// Coba scroll ke player
-try {
-  const video = page.locator("video").first();
-
-  if (await video.count()) {
-    await video.scrollIntoViewIfNeeded();
-
-    console.log("Video ditemukan.");
-
-    await video.evaluate((element) => {
-      element.muted = true;
-
-      const p = element.play();
-
-      if (p && typeof p.catch === "function") {
-        p.catch(() => {});
-      }
-    });
-
-    console.log("Video play() dipanggil.");
-  }
-} catch (error) {
-  console.log("Video tidak bisa dijalankan:", error.message);
-}
-
-// Coba menjalankan video di setiap frame
-for (const frame of page.frames()) {
-  try {
-    const videos = await frame.locator("video").count();
-
-    if (videos > 0) {
-      console.log(
-        `Frame ${frame.url()} memiliki ${videos} video.`
-      );
-
-      for (let i = 0; i < videos; i++) {
-        await frame
-          .locator("video")
-          .nth(i)
-          .evaluate((element) => {
-            element.muted = true;
-
-            const p = element.play();
-
-            if (p && typeof p.catch === "function") {
-              p.catch(() => {});
-            }
-          });
-      }
-    }
-  } catch {}
-}
-
-console.log("");
-console.log("Menunggu request HLS...");
-
-for (let i = 0; i < 60; i++) {
-  await page.waitForTimeout(1000);
-
-  if (i % 5 === 0) {
-    console.log(`Menunggu... ${i}s`);
-  }
-}
-
 await browser.close();
 
+if (!trans7Url) {
+  console.error("GAGAL: URL HLS Trans7 tidak ditemukan.");
+  process.exit(1);
+}
+
 console.log("");
 console.log("=================================");
-console.log("SELESAI DIAGNOSTIC");
+console.log("TRANS7 HLS BERHASIL DITEMUKAN");
 console.log("=================================");
+console.log(trans7Url);
+
+// ========================================
+// UPDATE os4.m3u
+// ========================================
+
+if (!fs.existsSync(PLAYLIST)) {
+  console.error(`File tidak ditemukan: ${PLAYLIST}`);
+  process.exit(1);
+}
+
+let playlist = fs.readFileSync(PLAYLIST, "utf8");
+
+// Cari blok Trans7
+const trans7Regex =
+  /(#EXTINF:-1,Trans7\s*\n)([^\n]*)/i;
+
+if (!trans7Regex.test(playlist)) {
+  console.error("Blok Trans7 tidak ditemukan di os4.m3u");
+  process.exit(1);
+}
+
+// Ganti hanya URL setelah EXTINF Trans7
+playlist = playlist.replace(
+  trans7Regex,
+  `$1${trans7Url}`
+);
+
+fs.writeFileSync(PLAYLIST, playlist);
+
+console.log("");
+console.log("=================================");
+console.log("PLAYLIST BERHASIL DIPERBARUI");
+console.log("=================================");
+console.log("");
+console.log("Trans7:");
+console.log(trans7Url);
