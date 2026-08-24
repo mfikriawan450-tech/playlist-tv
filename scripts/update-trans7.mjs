@@ -7,21 +7,17 @@ const browser = await chromium.launch({
 
 const page = await browser.newPage();
 
-let manifestUrl = null;
+let streamUrl = null;
 
 page.on("request", (request) => {
   const url = request.url();
 
-  if (
-    url.includes(
-      "dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8"
-    )
-  ) {
-    manifestUrl = url;
+  if (url.includes("/live-240.m3u8")) {
+    streamUrl = url;
 
     console.log("=================================");
-    console.log("MANIFEST TRANS7 DITEMUKAN");
-    console.log(manifestUrl);
+    console.log("STREAM TRANS7 DITEMUKAN");
+    console.log(streamUrl);
     console.log("=================================");
   }
 });
@@ -37,22 +33,22 @@ await page.goto(
 );
 
 console.log("Player terbuka.");
-console.log("Menunggu manifest...");
+console.log("Menunggu stream HLS...");
 
-for (let i = 0; i < 60 && !manifestUrl; i++) {
+for (let i = 0; i < 60 && !streamUrl; i++) {
   await page.waitForTimeout(1000);
 }
 
 await browser.close();
 
-if (!manifestUrl) {
-  console.error("GAGAL: Manifest Trans7 tidak ditemukan.");
+if (!streamUrl) {
+  console.error("GAGAL: Stream Trans7 tidak ditemukan.");
   process.exit(1);
 }
 
 const playlist = `#EXTM3U
 #EXTINF:-1,Trans7
-${manifestUrl}
+${streamUrl}
 `;
 
 fs.mkdirSync("playlist", {
@@ -65,5 +61,5 @@ fs.writeFileSync(
 );
 
 console.log("=================================");
-console.log("PLAYLIST TRANS7 BERHASIL DIBUAT");
+console.log("PLAYLIST TRANS7 BERHASIL DIPERBARUI");
 console.log("=================================");
