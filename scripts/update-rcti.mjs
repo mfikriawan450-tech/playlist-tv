@@ -106,10 +106,10 @@ for (const result of results) {
     "\\$&"
   );
 
-  const blockRegex = new RegExp(
-    `(#[#]EXTINF:-1,${escapedName}\\r?\\n` +
-    `(?:#EXTVLCOPT:[^\\r\\n]*\\r?\\n)*)(https?://[^\\r\\n]+)`
-  );
+const blockRegex = new RegExp(
+  `(#EXTINF:-1,${escapedName}\\r?\\n` +
+  `(?:#EXTVLCOPT:[^\\r\\n]*\\r?\\n)*)(https?://[^\\r\\n]+)`
+);
 
   if (!blockRegex.test(playlist)) {
     console.error(
