@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
-const playlistPath = "playlist/os4.m3u";
+const playlistPath = "os4.m3u";
 
 const channels = [
   {
