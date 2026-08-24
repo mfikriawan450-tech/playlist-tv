@@ -38,14 +38,15 @@ page.on("request", request => {
 });
 
 try {
-  console.log("Membuka Live Trans7 20Detik...");
-
   await page.goto(PAGE_URL, {
-    waitUntil: "commit",
-    timeout: 30000
+    waitUntil: "domcontentloaded",
+    timeout: 90000
   });
+} catch (error) {
+  console.log("Navigasi timeout, mencoba melanjutkan...");
+}
 
-  console.log("Halaman terbuka.");
+console.log("Melanjutkan proses player...");
 
   // Beri waktu iframe/player dimuat
   await page.waitForTimeout(8000);
