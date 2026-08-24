@@ -1,26 +1,31 @@
 import { chromium } from "playwright";
-import fs from "fs";
 
 const browser = await chromium.launch({
-  headless: true
+  headless: true,
+  args: [
+    "--autoplay-policy=no-user-gesture-required"
+  ]
 });
 
-const page = await browser.newPage();
+const page = await browser.newPage({
+  viewport: {
+    width: 1280,
+    height: 720
+  }
+});
 
-let manifestUrl = null;
+let found = false;
 
 page.on("request", (request) => {
   const url = request.url();
 
-  if (
-    url.includes(
-      "dmxleo.dailymotion.com/cdn/manifest/video/x8qckyq.m3u8"
-    )
-  ) {
-    manifestUrl = url;
+  if (url.includes("/live-") && url.includes(".m3u8")) {
+    console.log("=================================");
+    console.log("FINAL HLS DITEMUKAN:");
+    console.log(url);
+    console.log("=================================");
 
-    console.log("MANIFEST DITEMUKAN:");
-    console.log(manifestUrl);
+    found = true;
   }
 });
 
@@ -34,59 +39,45 @@ await page.goto(
   }
 );
 
-for (let i = 0; i < 60 && !manifestUrl; i++) {
+console.log("Player terbuka.");
+
+await page.waitForTimeout(5000);
+
+console.log("Mencoba menjalankan video...");
+
+const videos = await page.locator("video").count();
+
+console.log("Jumlah video:", videos);
+
+for (let i = 0; i < videos; i++) {
+  try {
+    await page.locator("video").nth(i).evaluate((video) => {
+      video.muted = true;
+      video.volume = 0;
+      return video.play();
+    });
+  } catch (error) {
+    console.log(`Video ${i} gagal play.`);
+  }
+}
+
+await page.mouse.click(640, 360).catch(() => {});
+
+console.log("Menunggu request HLS...");
+
+for (let i = 0; i < 120 && !found; i++) {
   await page.waitForTimeout(1000);
-}
 
-if (!manifestUrl) {
-  await browser.close();
-  console.error("Manifest tidak ditemukan.");
-  process.exit(1);
-}
-
-console.log("Mengambil isi manifest...");
-
-const response = await page.request.get(manifestUrl);
-
-console.log("STATUS MANIFEST:", response.status());
-
-const body = await response.text();
-
-console.log("UKURAN RESPONSE:", body.length);
-
-console.log("MENCARI URL STREAM...");
-
-const matches = body.match(
-  /https?:\/\/[^"'<>\\s]+\.m3u8[^"'<>\\s]*/g
-) || [];
-
-console.log("JUMLAH URL STREAM:", matches.length);
-
-for (const url of matches) {
-  console.log("STREAM:", url);
+  if (i % 10 === 0) {
+    console.log(`Menunggu ${i} detik...`);
+  }
 }
 
 await browser.close();
 
-if (matches.length === 0) {
-  console.error("URL stream tidak ditemukan di manifest.");
+if (!found) {
+  console.error("FINAL HLS TIDAK DITEMUKAN.");
   process.exit(1);
 }
 
-const streamUrl = matches[0];
-
-const playlist = `#EXTM3U
-#EXTINF:-1,Trans7
-${streamUrl}
-`;
-
-fs.mkdirSync("playlist", {
-  recursive: true
-});
-
-fs.writeFileSync(
-  "playlist/trans7.m3u",
-  playlist
-);
-
-console.log("Playlist Trans7 berhasil dibuat.");
+console.log("Selesai.");
