@@ -1,322 +1,115 @@
-import { chromium } from "playwright";
+const URL =
+  "https://video.detik.com/trans7-sec/smil:trans7.smil/playlist.m3u8?wowzatokenstarttime=0&wowzatokenendtime=1787570009556&wowzatokenhash=JVURLtfSgrkOBjFcUBqgFCiIFzuOWgpOpykcZp9lRN0%3D";
 
-const PAGE_URL = "https://20.detik.com/live/trans-7";
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+  "AppleWebKit/537.36 (KHTML, like Gecko) " +
+  "Chrome/151.0.0.0 Safari/537.36";
 
-const browser = await chromium.launch({
-  headless: true,
-  args: [
-    "--autoplay-policy=no-user-gesture-required",
-    "--disable-blink-features=AutomationControlled",
-    "--no-sandbox"
-  ]
-});
-
-const context = await browser.newContext({
-  viewport: {
-    width: 1280,
-    height: 720
+const tests = [
+  {
+    name: "TANPA HEADER",
+    headers: {}
   },
 
-  userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-    "Chrome/151.0.0.0 Safari/537.36"
-});
+  {
+    name: "USER-AGENT",
+    headers: {
+      "User-Agent": USER_AGENT
+    }
+  },
 
-const page = await context.newPage();
+  {
+    name: "REFERER",
+    headers: {
+      "Referer": "https://20.detik.com/",
+      "User-Agent": USER_AGENT
+    }
+  },
 
-let hlsRequest = null;
+  {
+    name: "REFERER + ORIGIN",
+    headers: {
+      "Referer": "https://20.detik.com/",
+      "Origin": "https://20.detik.com",
+      "User-Agent": USER_AGENT
+    }
+  },
 
-// ==========================================
-// TANGKAP REQUEST HLS
-// ==========================================
+  {
+    name: "REFERER LIVE TRANS7",
+    headers: {
+      "Referer": "https://20.detik.com/live/trans-7",
+      "Origin": "https://20.detik.com",
+      "User-Agent": USER_AGENT
+    }
+  },
 
-page.on("request", request => {
-  const url = request.url();
-
-  if (
-    url.includes("video.detik.com/trans7-sec/") &&
-    url.includes("playlist.m3u8")
-  ) {
-    if (!hlsRequest) {
-      hlsRequest = {
-        url,
-        headers: request.headers()
-      };
-
-      console.log("");
-      console.log("=================================");
-      console.log("HLS REQUEST DITEMUKAN");
-      console.log("=================================");
-      console.log("URL:");
-      console.log(url);
-
-      console.log("");
-      console.log("HEADERS:");
-      console.log(JSON.stringify(
-        request.headers(),
-        null,
-        2
-      ));
+  {
+    name: "DETIK",
+    headers: {
+      "Referer": "https://20.detik.com/",
+      "Origin": "https://20.detik.com",
+      "User-Agent": USER_AGENT,
+      "Accept": "*/*",
+      "Accept-Language": "en-US,en;q=0.9"
     }
   }
-});
+];
 
-// ==========================================
-// BUKA HALAMAN
-// ==========================================
+console.log("=================================");
+console.log("TEST URL TRANS7");
+console.log("=================================");
+console.log(URL);
 
-try {
-  console.log("Membuka Live Trans7 20Detik...");
-
-  await page.goto(PAGE_URL, {
-    waitUntil: "domcontentloaded",
-    timeout: 90000
-  });
-
-  console.log("Halaman Trans7 terbuka.");
-
-} catch (error) {
-
+for (const test of tests) {
   console.log("");
-  console.log("Navigasi mengalami masalah:");
-  console.log(error.message);
-
-  console.log("");
-  console.log("Tetap menunggu request HLS...");
-}
-
-// ==========================================
-// TUNGGU PLAYER
-// ==========================================
-
-await page.waitForTimeout(10000);
-
-// ==========================================
-// PLAY VIDEO
-// ==========================================
-
-console.log("");
-console.log("Mencari video player...");
-
-for (const frame of page.frames()) {
+  console.log("=================================");
+  console.log(test.name);
+  console.log("=================================");
 
   try {
+    const response = await fetch(URL, {
+      method: "GET",
+      headers: test.headers,
+      redirect: "follow"
+    });
 
-    const videoCount = await frame
-      .locator("video")
-      .count();
-
-    if (videoCount > 0) {
-
-      console.log(
-        `Frame memiliki ${videoCount} video.`
-      );
-
-      for (let i = 0; i < videoCount; i++) {
-
-        try {
-
-          await frame
-            .locator("video")
-            .nth(i)
-            .evaluate(video => {
-
-              video.muted = true;
-
-              const promise = video.play();
-
-              if (
-                promise &&
-                typeof promise.catch === "function"
-              ) {
-                promise.catch(() => {});
-              }
-
-            });
-
-          console.log(
-            `Video ${i} diperintahkan play.`
-          );
-
-        } catch (error) {
-
-          console.log(
-            `Video ${i} gagal play:`,
-            error.message
-          );
-
-        }
-      }
-    }
-
-  } catch {}
-}
-
-// ==========================================
-// KLIK PLAYER
-// ==========================================
-
-try {
-
-  await page.mouse.click(640, 360);
-
-  console.log("Player diklik.");
-
-} catch {}
-
-// ==========================================
-// TUNGGU HLS
-// ==========================================
-
-console.log("");
-console.log("Menunggu HLS...");
-
-for (
-  let i = 0;
-  i < 60 && !hlsRequest;
-  i++
-) {
-
-  await page.waitForTimeout(2000);
-
-  if (i % 5 === 0) {
+    console.log("STATUS:", response.status);
     console.log(
-      `Menunggu HLS... ${i * 2}s`
+      "CONTENT-TYPE:",
+      response.headers.get("content-type")
+    );
+
+    console.log(
+      "SERVER:",
+      response.headers.get("server")
+    );
+
+    const text = await response.text();
+
+    console.log(
+      "RESPONSE SIZE:",
+      text.length
+    );
+
+    console.log("");
+    console.log("RESPONSE AWAL:");
+
+    console.log(
+      text.substring(0, 500)
+    );
+
+  } catch (error) {
+
+    console.log(
+      "ERROR:",
+      error.message
     );
   }
 }
 
-// ==========================================
-// HASIL
-// ==========================================
-
 console.log("");
 console.log("=================================");
-console.log("HASIL DIAGNOSTIK");
-console.log("=================================");
-
-if (!hlsRequest) {
-
-  console.error(
-    "HLS playlist tidak ditemukan."
-  );
-
-  await browser.close();
-  process.exit(1);
-}
-
-console.log("");
-console.log("URL HLS:");
-console.log(hlsRequest.url);
-
-console.log("");
-console.log("=================================");
-console.log("HEADER YANG DIGUNAKAN BROWSER");
-console.log("=================================");
-
-for (
-  const [name, value]
-  of Object.entries(hlsRequest.headers)
-) {
-
-  console.log(
-    `${name}: ${value}`
-  );
-
-}
-
-// ==========================================
-// TEST URL DENGAN HEADER YANG SAMA
-// ==========================================
-
-console.log("");
-console.log("=================================");
-console.log("TEST URL DENGAN HEADER BROWSER");
-console.log("=================================");
-
-try {
-
-  const response = await page.request.get(
-    hlsRequest.url,
-    {
-      headers: hlsRequest.headers
-    }
-  );
-
-  console.log(
-    "STATUS:",
-    response.status()
-  );
-
-  console.log(
-    "CONTENT-TYPE:",
-    response.headers()["content-type"]
-  );
-
-  const body = await response.text();
-
-  console.log(
-    "UKURAN RESPONSE:",
-    body.length
-  );
-
-  console.log("");
-  console.log("AWAL RESPONSE:");
-  console.log(
-    body.substring(0, 1000)
-  );
-
-} catch (error) {
-
-  console.error(
-    "Gagal melakukan test:",
-    error.message
-  );
-
-}
-
-// ==========================================
-// TEST URL TANPA HEADER KHUSUS
-// ==========================================
-
-console.log("");
-console.log("=================================");
-console.log("TEST URL TANPA HEADER BROWSER");
-console.log("=================================");
-
-try {
-
-  const response = await page.request.get(
-    hlsRequest.url
-  );
-
-  console.log(
-    "STATUS:",
-    response.status()
-  );
-
-  console.log(
-    "CONTENT-TYPE:",
-    response.headers()["content-type"]
-  );
-
-} catch (error) {
-
-  console.error(
-    "Gagal melakukan test:",
-    error.message
-  );
-
-}
-
-// ==========================================
-// SELESAI
-// ==========================================
-
-await browser.close();
-
-console.log("");
-console.log("=================================");
-console.log("DIAGNOSTIK SELESAI");
+console.log("TEST SELESAI");
 console.log("=================================");
