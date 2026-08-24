@@ -1,4 +1,4 @@
-name: Test Trans7 Access
+name: Test Trans7 SevenHub
 
 on:
   workflow_dispatch:
@@ -8,10 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -21,6 +21,6 @@ jobs:
           npm install playwright
           npx playwright install chromium
 
-      - name: Test Trans7
+      - name: Run Trans7 detector
         run: |
           node scripts/update-trans7.mjs
