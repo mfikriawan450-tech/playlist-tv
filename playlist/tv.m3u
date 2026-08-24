@@ -1,10 +1,10 @@
 #EXTM3U
 
 #EXTINF:-1 tvg-id="RCTI" tvg-name="RCTI" group-title="Indonesia",RCTI
-URL_RCTI
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787569860~hmac=60b97ea54e21c83c676c9a840093c6645a75d76fedb15f4b9da3363d20e19417
 
 #EXTINF:-1 tvg-id="MNCTV" tvg-name="MNCTV" group-title="Indonesia",MNCTV
-URL_MNCTV
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787569866~hmac=eab3b796fd8ab70f3d9377f5051efd0893d00cc7874dd03d27bf1fa5edf1919e
 
 #EXTINF:-1 tvg-id="GTV" tvg-name="GTV" group-title="Indonesia",GTV
-URL_GTV
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787569870~hmac=1407947cc0a03290f35b55cb670d01fe521f86c24c2046a6bfedd7874299504b
