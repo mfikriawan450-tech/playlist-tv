@@ -49,15 +49,17 @@ page.on("response", (response) => {
 });
 
 try {
-  await page.goto(
-    "https://20.detik.com/live/trans-7",
-    {
-      waitUntil: "domcontentloaded",
-      timeout: 60000
-    }
-  );
+await page.goto(
+  "https://20.detik.com/live/trans-7",
+  {
+    waitUntil: "commit",
+    timeout: 30000
+  }
+);
 
-  console.log("Halaman terbuka.");
+console.log("Navigasi halaman berhasil dimulai.");
+
+  console.log("Halaman Trans7 mulai dimuat.");
 } catch (error) {
   console.error("Gagal membuka halaman:", error.message);
   await browser.close();
@@ -65,7 +67,7 @@ try {
 }
 
 // Beri waktu halaman membangun iframe/player
-await page.waitForTimeout(5000);
+await page.waitForTimeout(10000);
 
 console.log("");
 console.log("=================================");
