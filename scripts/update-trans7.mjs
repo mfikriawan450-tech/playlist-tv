@@ -1,8 +1,6 @@
 import { chromium } from "playwright";
-import fs from "fs";
 
-const PAGE_URL = "https://20.detik.com/live/trans-7";
-const PLAYLIST = "os4.m3u";
+const PAGE_URL = "https://sevenhub.id/live";
 
 const browser = await chromium.launch({
   headless: true,
@@ -28,10 +26,10 @@ const context = await browser.newContext({
 
 const page = await context.newPage();
 
-let trans7Url = null;
+let streamUrl = null;
 
 // =====================================================
-// DETEKSI REQUEST DAILYMOTION
+// DETEKSI REQUEST M3U8 DAILYMOTION
 // =====================================================
 
 page.on("request", request => {
@@ -43,40 +41,36 @@ page.on("request", request => {
   ) {
     console.log("");
     console.log("=================================");
-    console.log("DAILYMOTION HLS REQUEST");
+    console.log("M3U8 DAILYMOTION DITEMUKAN");
     console.log("=================================");
     console.log(url);
 
-    // Prioritas utama:
-    // live-240.m3u8 dari video Trans7 x8qckyq
-
+    // Prioritaskan stream Trans7 240p
     if (
       url.includes("x8qckyq") &&
       url.includes("live-240.m3u8")
     ) {
-      trans7Url = url;
+      streamUrl = url;
 
       console.log("");
       console.log("TARGET TRANS7 DITEMUKAN!");
-      console.log(trans7Url);
     }
 
-    // Fallback apabila struktur URL berubah
+    // Fallback jika nama/struktur URL berubah
     else if (
       url.includes("live-240.m3u8") &&
-      !trans7Url
+      !streamUrl
     ) {
-      trans7Url = url;
+      streamUrl = url;
 
       console.log("");
-      console.log("STREAM 240P DITEMUKAN:");
-      console.log(trans7Url);
+      console.log("STREAM 240P DITEMUKAN!");
     }
   }
 });
 
 // =====================================================
-// DETEKSI RESPONSE DAILYMOTION
+// DETEKSI RESPONSE M3U8
 // =====================================================
 
 page.on("response", response => {
@@ -87,7 +81,7 @@ page.on("response", response => {
     url.includes(".m3u8")
   ) {
     console.log("");
-    console.log("DAILYMOTION HLS RESPONSE");
+    console.log("M3U8 RESPONSE");
     console.log("STATUS:", response.status());
     console.log(url);
 
@@ -96,7 +90,7 @@ page.on("response", response => {
       url.includes("x8qckyq") &&
       url.includes("live-240.m3u8")
     ) {
-      trans7Url = url;
+      streamUrl = url;
 
       console.log("");
       console.log("TARGET TRANS7 RESPONSE 200!");
@@ -111,9 +105,7 @@ page.on("response", response => {
 page.on("requestfailed", request => {
   const url = request.url();
 
-  if (
-    url.includes("cf.dmcdn.net")
-  ) {
+  if (url.includes("cf.dmcdn.net")) {
     console.log("");
     console.log("DAILYMOTION REQUEST FAILED");
     console.log(url);
@@ -124,46 +116,40 @@ page.on("requestfailed", request => {
 });
 
 // =====================================================
-// BUKA HALAMAN
+// BUKA SEVENHUB
 // =====================================================
 
 console.log("");
 console.log("=================================");
-console.log("MEMBUKA TRANS7");
+console.log("MEMBUKA SEVENHUB");
 console.log("=================================");
 console.log(PAGE_URL);
 
 try {
-
   await page.goto(PAGE_URL, {
-    waitUntil: "commit",
-    timeout: 30000
+    waitUntil: "domcontentloaded",
+    timeout: 60000
   });
 
-  console.log(
-    "Halaman awal berhasil dibuka."
-  );
+  console.log("SevenHub berhasil dibuka.");
 
 } catch (error) {
 
   console.log("");
-  console.log(
-    "Navigasi mengalami masalah:"
-  );
+  console.log("Gagal membuka SevenHub:");
+  console.log(error.message);
 
-  console.log(
-    error.message
-  );
-
-  console.log("");
-  console.log(
-    "Tetap memantau Dailymotion..."
-  );
+  await browser.close();
+  process.exit(1);
 }
 
 // =====================================================
 // TUNGGU PLAYER
 // =====================================================
+
+console.log("");
+console.log("Menunggu player...");
+console.log("Tunggu 10 detik agar stream mulai...");
 
 await page.waitForTimeout(10000);
 
@@ -173,7 +159,7 @@ await page.waitForTimeout(10000);
 
 console.log("");
 console.log("=================================");
-console.log("FRAME");
+console.log("FRAME YANG TERBUKA");
 console.log("=================================");
 
 for (const frame of page.frames()) {
@@ -185,19 +171,14 @@ for (const frame of page.frames()) {
 // =====================================================
 
 console.log("");
-console.log(
-  "Mencari video player..."
-);
+console.log("Mencari video player...");
 
 for (const frame of page.frames()) {
 
   try {
 
-    const videos =
-      frame.locator("video");
-
-    const count =
-      await videos.count();
+    const videos = frame.locator("video");
+    const count = await videos.count();
 
     if (count > 0) {
 
@@ -205,11 +186,7 @@ for (const frame of page.frames()) {
         `Frame memiliki ${count} video.`
       );
 
-      for (
-        let i = 0;
-        i < count;
-        i++
-      ) {
+      for (let i = 0; i < count; i++) {
 
         try {
 
@@ -219,13 +196,11 @@ for (const frame of page.frames()) {
 
               video.muted = true;
 
-              const promise =
-                video.play();
+              const promise = video.play();
 
               if (
                 promise &&
-                typeof promise.catch ===
-                  "function"
+                typeof promise.catch === "function"
               ) {
                 promise.catch(() => {});
               }
@@ -257,43 +232,31 @@ for (const frame of page.frames()) {
 
 try {
 
-  await page.mouse.click(
-    640,
-    360
-  );
+  await page.mouse.click(640, 360);
 
-  console.log(
-    "Player diklik."
-  );
+  console.log("Player diklik.");
 
 } catch {}
 
 // =====================================================
-// TUNGGU DAILYMOTION HLS
+// TUNGGU STREAM
 // =====================================================
 
 console.log("");
-console.log(
-  "Menunggu Dailymotion HLS..."
-);
+console.log("Menunggu M3U8 Dailymotion...");
 
 for (
   let i = 0;
-  i < 60 &&
-  !trans7Url;
+  i < 30 && !streamUrl;
   i++
 ) {
 
-  await page.waitForTimeout(
-    2000
-  );
+  await page.waitForTimeout(2000);
 
   if (i % 5 === 0) {
-
     console.log(
       `Menunggu HLS... ${i * 2}s`
     );
-
   }
 }
 
@@ -303,95 +266,30 @@ for (
 
 console.log("");
 console.log("=================================");
-console.log("HASIL DETEKSI");
+console.log("HASIL DETEKSI TRANS7");
 console.log("=================================");
 
-if (!trans7Url) {
+if (!streamUrl) {
 
   console.error(
-    "GAGAL: URL Dailymotion Trans7 tidak ditemukan."
+    "GAGAL: M3U8 Dailymotion Trans7 tidak ditemukan."
   );
 
   await browser.close();
-
   process.exit(1);
 }
 
 console.log("");
 console.log("URL TRANS7:");
-console.log(trans7Url);
+console.log(streamUrl);
 
 // =====================================================
-// TUTUP BROWSER
+// TUTUP
 // =====================================================
 
 await browser.close();
 
-// =====================================================
-// CEK PLAYLIST
-// =====================================================
-
-if (
-  !fs.existsSync(PLAYLIST)
-) {
-
-  console.error("");
-  console.error(
-    `File tidak ditemukan: ${PLAYLIST}`
-  );
-
-  process.exit(1);
-}
-
-let playlist =
-  fs.readFileSync(
-    PLAYLIST,
-    "utf8"
-  );
-
-// =====================================================
-// CARI BLOK TRANS7
-// =====================================================
-
-const trans7Regex =
-  /(#EXTINF:-1,Trans7\s*\n)(?:#EXTVLCOPT:[^\r\n]*\r?\n)*(https?:\/\/[^\r\n]*)/i;
-
-if (
-  !trans7Regex.test(playlist)
-) {
-
-  console.error("");
-  console.error(
-    "Blok Trans7 tidak ditemukan di os4.m3u"
-  );
-
-  process.exit(1);
-}
-
-// =====================================================
-// UPDATE URL SAJA
-// =====================================================
-
-playlist =
-  playlist.replace(
-    trans7Regex,
-    `$1${trans7Url}`
-  );
-
-// =====================================================
-// SIMPAN
-// =====================================================
-
-fs.writeFileSync(
-  PLAYLIST,
-  playlist,
-  "utf8"
-);
-
 console.log("");
 console.log("=================================");
-console.log("PLAYLIST BERHASIL DIPERBARUI");
+console.log("DETECTOR BERHASIL");
 console.log("=================================");
-console.log("");
-console.log("Trans7:");
-console.log(trans7Url);
