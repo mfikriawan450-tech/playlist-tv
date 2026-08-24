@@ -4,15 +4,18 @@ import fs from "fs";
 const channels = [
   {
     name: "RCTI",
-    url: "https://www.rctiplus.com/tv/rcti"
+    url: "https://www.rctiplus.com/tv/rcti",
+    pattern: /https:\/\/rcti-linier\.rctiplus\.id\/rcti-sdi\.m3u8\?hdnts=/
   },
   {
     name: "MNCTV",
-    url: "https://www.rctiplus.com/tv/mnctv"
+    url: "https://www.rctiplus.com/tv/mnctv",
+    pattern: /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=/
   },
   {
     name: "GTV",
-    url: "https://www.rctiplus.com/tv/gtv"
+    url: "https://www.rctiplus.com/tv/gtv",
+    pattern: /https:\/\/gtv-linier\.rctiplus\.id\/gtv-sdi\.m3u8\?hdnts=/
   }
 ];
 
@@ -32,14 +35,13 @@ for (const channel of channels) {
   page.on("request", (request) => {
     const url = request.url();
 
-    if (
-      url.includes("-linier.rctiplus.id/") &&
-      url.includes(".m3u8")
-    ) {
-      streamUrl = url;
+    if (channel.pattern.test(url)) {
+      if (!streamUrl) {
+        streamUrl = url;
 
-      console.log(`${channel.name} STREAM DITEMUKAN:`);
-      console.log(streamUrl);
+        console.log(`${channel.name} STREAM DITEMUKAN:`);
+        console.log(streamUrl);
+      }
     }
   });
 
@@ -53,7 +55,10 @@ for (const channel of channels) {
       await page.waitForTimeout(1000);
     }
   } catch (error) {
-    console.error(`${channel.name} gagal dibuka:`, error.message);
+    console.error(
+      `${channel.name} gagal dibuka:`,
+      error.message
+    );
   }
 
   await page.close();
@@ -64,7 +69,9 @@ for (const channel of channels) {
       url: streamUrl
     });
   } else {
-    console.error(`${channel.name}: URL stream tidak ditemukan.`);
+    console.error(
+      `${channel.name}: URL stream tidak ditemukan.`
+    );
   }
 }
 
