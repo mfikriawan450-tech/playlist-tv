@@ -16,9 +16,12 @@ jobs:
           echo "$URL"
           echo ""
 
-          curl -L \
+          curl --http1.1 \
+            -L \
             --fail \
             --max-time 30 \
+            -A "Mozilla/5.0" \
+            -e "https://20.detik.com/" \
             -D headers.txt \
             "$URL" \
             -o trans7.m3u8
