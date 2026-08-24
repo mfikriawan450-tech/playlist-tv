@@ -11,6 +11,11 @@ const page = await browser.newPage({
   }
 });
 
+await page.setExtraHTTPHeaders({
+  "Referer": "https://sevenhub.id/",
+  "Origin": "https://sevenhub.id"
+});
+
 let manifestUrl = null;
 let streamUrl = null;
 
@@ -61,13 +66,14 @@ page.on("response", async (response) => {
 });
 
 try {
-  await page.goto(
-    "https://geo.dailymotion.com/player/x15a7g.html?video=x8qckyq",
-    {
-      waitUntil: "domcontentloaded",
-      timeout: 60000
-    }
-  );
+await page.goto(
+  "https://geo.dailymotion.com/player/x15a7g.html?video=x8qckyq",
+  {
+    waitUntil: "domcontentloaded",
+    timeout: 60000,
+    referer: "https://sevenhub.id/"
+  }
+);
 
   console.log("Player terbuka.");
 } catch (error) {
