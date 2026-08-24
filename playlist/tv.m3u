@@ -1,0 +1,10 @@
+#EXTM3U
+
+#EXTINF:-1 tvg-id="RCTI" tvg-name="RCTI" group-title="Indonesia",RCTI
+URL_RCTI
+
+#EXTINF:-1 tvg-id="MNCTV" tvg-name="MNCTV" group-title="Indonesia",MNCTV
+URL_MNCTV
+
+#EXTINF:-1 tvg-id="GTV" tvg-name="GTV" group-title="Indonesia",GTV
+URL_GTV
