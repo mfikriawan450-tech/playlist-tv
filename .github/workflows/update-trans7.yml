@@ -44,6 +44,23 @@ jobs:
 
           git commit -m "Update Trans7 stream"
 
-          git pull --rebase origin main
+          for i in 1 2 3 4 5; do
+            echo "================================="
+            echo "PUSH ATTEMPT $i"
+            echo "================================="
 
-          git push origin main
+            git fetch origin main
+
+            git rebase origin/main
+
+            if git push origin HEAD:main; then
+              echo "Push berhasil."
+              exit 0
+            fi
+
+            echo "Push gagal. Menunggu sebelum mencoba lagi..."
+            sleep 5
+          done
+
+          echo "GAGAL: Tidak dapat melakukan push setelah 5 percobaan."
+          exit 1
