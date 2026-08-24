@@ -90,6 +90,13 @@ jobs:
 
           git commit -m "Update TV streams"
 
+          # Ambil perubahan terbaru dari remote
+          git fetch origin main
+
+          # Satukan commit workflow dengan main terbaru
+          git rebase origin/main
+
+          # Push hasil rebase
           git push origin HEAD:main
 
           echo "================================="
