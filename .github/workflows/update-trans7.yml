@@ -1,4 +1,4 @@
-name: Test Trans7
+name: Test Trans7 Access
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -21,13 +21,6 @@ jobs:
           npm install playwright
           npx playwright install chromium
 
-      - name: Run Trans7 detector
+      - name: Test Trans7
         run: |
           node scripts/update-trans7.mjs
-
-      - name: Show playlist
-        run: |
-          echo "================================="
-          echo "ISI os4.m3u"
-          echo "================================="
-          cat os4.m3u
