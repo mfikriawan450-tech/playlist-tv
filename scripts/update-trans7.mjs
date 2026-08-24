@@ -4,21 +4,17 @@ import fs from "fs";
 const PAGE_URL = "https://sevenhub.id/live";
 const PLAYLIST = "os4.m3u";
 
-// =====================================================
-// KONFIGURASI
-// =====================================================
-
 const TARGET_VIDEO_ID = "x8qckyq";
 
-// Prioritas resolusi
-const RESOLUTION_PRIORITY = [
-  720,
-  1080,
-  576,
-  480,
-  360,
-  240
-];
+// =====================================================
+// KONFIGURASI RESOLUSI
+// =====================================================
+
+// Kita sengaja menjadikan 720p sebagai target.
+// SevenHub biasanya memberikan request live-240.m3u8,
+// lalu URL tersebut kita ubah menjadi live-720.m3u8.
+const TARGET_RESOLUTION = 720;
+const FALLBACK_RESOLUTION = 240;
 
 // =====================================================
 // BROWSER
@@ -50,31 +46,14 @@ const context = await browser.newContext({
 const page = await context.newPage();
 
 // =====================================================
-// PENYIMPAN REQUEST M3U8
+// VARIABEL
 // =====================================================
 
-const streams = new Map();
-
+let originalUrl = null;
 let selectedUrl = null;
 
 // =====================================================
-// FUNGSI IDENTIFIKASI RESOLUSI
-// =====================================================
-
-function getResolution(url) {
-  const match = url.match(
-    /(?:live-|[_-])(\d{3,4})(?:p)?\.m3u8/i
-  );
-
-  if (match) {
-    return parseInt(match[1], 10);
-  }
-
-  return null;
-}
-
-// =====================================================
-// CEK APAKAH URL ADALAH TARGET DAILYMOTION
+// CEK TARGET DAILYMOTION
 // =====================================================
 
 function isTargetStream(url) {
@@ -86,48 +65,44 @@ function isTargetStream(url) {
 }
 
 // =====================================================
-// SIMPAN STREAM
+// UBAH RESOLUSI
 // =====================================================
 
-function registerStream(url) {
+function changeResolution(url, resolution) {
+  return url.replace(
+    /live-\d{3,4}\.m3u8/i,
+    `live-${resolution}.m3u8`
+  );
+}
+
+// =====================================================
+// REQUEST M3U8
+// =====================================================
+
+page.on("request", request => {
+  const url = request.url();
+
   if (!isTargetStream(url)) {
     return;
   }
 
-  const resolution = getResolution(url);
-
-  const key = resolution
-    ? String(resolution)
-    : "unknown";
-
-  streams.set(key, {
-    url,
-    resolution
-  });
-
   console.log("");
   console.log("M3U8 DAILYMOTION DITEMUKAN");
   console.log("---------------------------------");
-  console.log("Resolusi :", resolution ?? "unknown");
-  console.log("URL      :", url);
+  console.log(url);
 
-  if (resolution === 720) {
+  // Ambil URL pertama yang ditemukan.
+  if (!originalUrl) {
+    originalUrl = url;
+
     console.log("");
-    console.log(">>> TARGET 720P DITEMUKAN! <<<");
-    console.log("");
+    console.log("URL DASAR TRANS7 DITEMUKAN:");
+    console.log(originalUrl);
   }
-}
-
-// =====================================================
-// REQUEST
-// =====================================================
-
-page.on("request", request => {
-  registerStream(request.url());
 });
 
 // =====================================================
-// RESPONSE
+// RESPONSE M3U8
 // =====================================================
 
 page.on("response", response => {
@@ -144,13 +119,8 @@ page.on("response", response => {
   console.log("STATUS:", status);
   console.log("URL:", url);
 
-  if (status === 200) {
-    registerStream(url);
-
-    if (getResolution(url) === 720) {
-      console.log("");
-      console.log("TARGET 720P RESPONSE 200!");
-    }
+  if (status === 200 && !originalUrl) {
+    originalUrl = url;
   }
 });
 
@@ -209,7 +179,7 @@ try {
   }
 
   // ===================================================
-  // CARI VIDEO
+  // CARI VIDEO PLAYER
   // ===================================================
 
   console.log("");
@@ -218,7 +188,6 @@ try {
   for (const frame of page.frames()) {
     try {
       const videos = frame.locator("video");
-
       const count = await videos.count();
 
       if (count > 0) {
@@ -269,24 +238,16 @@ try {
   } catch {}
 
   // ===================================================
-  // TUNGGU REQUEST
+  // TUNGGU STREAM 240
   // ===================================================
 
   console.log("");
   console.log("=================================");
-  console.log("MENUNGGU STREAM DAILYMOTION");
+  console.log("MENUNGGU M3U8 DAILYMOTION");
   console.log("=================================");
 
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 60 && !originalUrl; i++) {
     await page.waitForTimeout(2000);
-
-    // Kalau 720 sudah ditemukan,
-    // kita tidak perlu menunggu terlalu lama.
-    if (streams.has("720")) {
-      console.log("");
-      console.log("720P sudah ditemukan.");
-      break;
-    }
 
     if (i % 5 === 0) {
       console.log(
@@ -301,8 +262,124 @@ try {
   console.error(error.message);
 
   await browser.close();
-
   process.exit(1);
+}
+
+// =====================================================
+// CEK URL DASAR
+// =====================================================
+
+if (!originalUrl) {
+  console.error("");
+  console.error("=================================");
+  console.error("HASIL DETEKSI TRANS7");
+  console.error("=================================");
+  console.error("");
+  console.error(
+    "GAGAL: URL M3U8 Dailymotion tidak ditemukan."
+  );
+
+  await browser.close();
+  process.exit(1);
+}
+
+console.log("");
+console.log("=================================");
+console.log("URL DASAR DITEMUKAN");
+console.log("=================================");
+console.log(originalUrl);
+
+// =====================================================
+// BUAT URL 720P
+// =====================================================
+
+const url720 = changeResolution(
+  originalUrl,
+  TARGET_RESOLUTION
+);
+
+console.log("");
+console.log("=================================");
+console.log("MENCOBA RESOLUSI 720P");
+console.log("=================================");
+console.log(url720);
+
+// =====================================================
+// CEK URL 720P
+// =====================================================
+
+let resolution720Works = false;
+
+try {
+  console.log("");
+  console.log("Mengecek apakah URL 720P tersedia...");
+
+  const response720 = await context.request.get(
+    url720,
+    {
+      timeout: 30000,
+      headers: {
+        "Referer": "https://sevenhub.id/",
+        "Origin": "https://sevenhub.id",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/151.0.0.0 Safari/537.36"
+      }
+    }
+  );
+
+  console.log(
+    "STATUS 720P:",
+    response720.status()
+  );
+
+  if (response720.status() === 200) {
+    resolution720Works = true;
+
+    console.log("");
+    console.log("=================================");
+    console.log("720P TERSEDIA!");
+    console.log("=================================");
+    console.log(url720);
+  } else {
+    console.log("");
+    console.log(
+      `720P tidak tersedia. HTTP ${response720.status()}`
+    );
+  }
+
+  await response720.dispose();
+
+} catch (error) {
+  console.log("");
+  console.log("Gagal mengecek 720P:");
+  console.log(error.message);
+}
+
+// =====================================================
+// PILIH URL
+// =====================================================
+
+if (resolution720Works) {
+  selectedUrl = url720;
+
+  console.log("");
+  console.log("RESOLUSI 720P DIPILIH.");
+} else {
+  selectedUrl = changeResolution(
+    originalUrl,
+    FALLBACK_RESOLUTION
+  );
+
+  console.log("");
+  console.log(
+    "720P gagal diverifikasi."
+  );
+
+  console.log(
+    "Menggunakan fallback 240P."
+  );
 }
 
 // =====================================================
@@ -312,104 +389,18 @@ try {
 await browser.close();
 
 // =====================================================
-// HASIL STREAM
+// HASIL AKHIR
 // =====================================================
 
 console.log("");
 console.log("=================================");
 console.log("HASIL DETEKSI TRANS7");
 console.log("=================================");
-
-if (streams.size === 0) {
-  console.error("");
-  console.error(
-    "GAGAL: Tidak ada stream Dailymotion ditemukan."
-  );
-
-  process.exit(1);
-}
-
-// =====================================================
-// TAMPILKAN SEMUA STREAM
-// =====================================================
-
 console.log("");
-console.log("STREAM YANG TERDETEKSI:");
-
-for (const stream of streams.values()) {
-  console.log(
-    `${stream.resolution ?? "unknown"}p : ${stream.url}`
-  );
-}
-
-// =====================================================
-// PILIH RESOLUSI
-// =====================================================
-
-// 1. Cari 720p terlebih dahulu
-for (const resolution of RESOLUTION_PRIORITY) {
-  const stream = streams.get(String(resolution));
-
-  if (stream) {
-    selectedUrl = stream.url;
-
-    console.log("");
-    console.log(
-      `RESOLUSI ${resolution}P DIPILIH.`
-    );
-
-    break;
-  }
-}
-
-// =====================================================
-// FALLBACK
-// =====================================================
-
-if (!selectedUrl) {
-  const validStreams = [...streams.values()]
-    .filter(stream => stream.resolution)
-    .sort(
-      (a, b) =>
-        b.resolution - a.resolution
-    );
-
-  if (validStreams.length > 0) {
-    selectedUrl = validStreams[0].url;
-
-    console.log("");
-    console.log(
-      `720P tidak ditemukan. ` +
-      `Menggunakan ${validStreams[0].resolution}P.`
-    );
-  }
-}
-
-// =====================================================
-// JIKA RESOLUSI TIDAK TERBACA
-// =====================================================
-
-if (!selectedUrl) {
-  selectedUrl = [...streams.values()][0].url;
-
-  console.log("");
-  console.log(
-    "Resolusi tidak dapat dibaca."
-  );
-
-  console.log(
-    "Menggunakan stream Dailymotion yang ditemukan."
-  );
-}
-
-// =====================================================
-// HASIL AKHIR
-// =====================================================
-
+console.log("URL DASAR:");
+console.log(originalUrl);
 console.log("");
-console.log("=================================");
-console.log("STREAM TRANS7 TERPILIH");
-console.log("=================================");
+console.log("URL TERPILIH:");
 console.log(selectedUrl);
 
 // =====================================================
@@ -447,7 +438,7 @@ if (!trans7Regex.test(playlist)) {
 }
 
 // =====================================================
-// UPDATE URL
+// UPDATE URL TRANS7
 // =====================================================
 
 playlist = playlist.replace(
@@ -456,7 +447,7 @@ playlist = playlist.replace(
 );
 
 // =====================================================
-// SIMPAN
+// SIMPAN PLAYLIST
 // =====================================================
 
 fs.writeFileSync(
@@ -479,3 +470,10 @@ console.log(PLAYLIST);
 console.log("");
 console.log("Trans7:");
 console.log(selectedUrl);
+console.log("");
+
+if (resolution720Works) {
+  console.log("Resolusi: 720P");
+} else {
+  console.log("Resolusi: 240P (fallback)");
+}
