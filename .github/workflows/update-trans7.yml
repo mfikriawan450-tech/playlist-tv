@@ -18,4 +18,4 @@ jobs:
 
       - name: Test Trans7
         run: |
-          node scripts/update-trans7.yml
+          node scripts/test-trans7-url.mjs
