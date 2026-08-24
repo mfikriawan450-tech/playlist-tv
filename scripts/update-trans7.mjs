@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import fs from "fs";
 
 const PAGE_URL = "https://20.detik.com/live/trans-7";
-const PLAYLIST = "playlist/os4.m3u";
+const PLAYLIST = "os4.m3u";
 
 const browser = await chromium.launch({
   headless: true,
