@@ -1,10 +1,10 @@
 #EXTM3U
 
 #EXTINF:-1 tvg-id="RCTI" tvg-name="RCTI" group-title="Indonesia",RCTI
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787570591~hmac=60136f203d7674cf080ae9a20e1c97500c3502753462ff8415eda37800a4ef10
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787570783~hmac=8d43aacd5cf71a3ba0f6be15f0d95d29c37dcd58fc832d13369326f756805c84
 
 #EXTINF:-1 tvg-id="MNCTV" tvg-name="MNCTV" group-title="Indonesia",MNCTV
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787570604~hmac=42015a5df05949dab6278e648dad6a9be6cec52100011591a8b92f4b2d998249
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787570787~hmac=ee3959bb0828b49c8ca84d9a1927b2cd89a848955c145f70bfc48e548bc9f6d3
 
 #EXTINF:-1 tvg-id="GTV" tvg-name="GTV" group-title="Indonesia",GTV
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787570610~hmac=e7a53ab0659c04c6bf059b54fafae7ccd49a53a48e06648134eb4c350b5b1432
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787570800~hmac=883fc690f9cc7b96b57b5b40cc46711b553b116b25759860189b347e57fb5a37
