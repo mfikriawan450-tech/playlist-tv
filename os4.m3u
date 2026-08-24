@@ -8,17 +8,17 @@ https://live.eu-north-1a.cf.dmcdn.net/sec2(LIDYUpY7Nb5-Lkb4HWRbXlCzrNK1cbgDu9IRQ
 #EXTINF:-1,RCTI
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787571706~hmac=e231a89e1b72dd3fe9b5fcf9718d826a51b7d3d2a1b4110a3d2c2191724a9973
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787575691~hmac=2d0c1cebea359704fa22cfd31bb1b8d3fc05f278b84be78b406dd93628a1b78c
 
 #EXTINF:-1,MNCTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787571719~hmac=3fc59a15a8ebc662d59ef91c5e8743cbd2d2a8679a142b0039707b645597b2d6
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787575696~hmac=fabeda1701cb64713e50e60e9e7b2fe855b5811f96d535b685cd1c09b51af15e
 
 #EXTINF:-1,GTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787571724~hmac=9c58ba1681fb4551d701266da9ec95a78761f7d5278bee4e1b58e4ee173ca703
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787575701~hmac=cdbb6f4641982eb1b04260300ba73b1e61522b9ab083400c406bac879470b8ea
 
 #EXTINF:-1,TVRI Nasional
 https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
