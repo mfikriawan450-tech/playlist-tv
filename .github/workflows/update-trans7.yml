@@ -1,4 +1,4 @@
-name: Test Trans7 Session
+name: Test Trans7
 
 on:
   workflow_dispatch:
@@ -21,6 +21,13 @@ jobs:
           npm install playwright
           npx playwright install chromium
 
-      - name: Test Trans7 Session
+      - name: Run Trans7 detector
         run: |
-          node scripts/test-trans7-session.mjs
+          node scripts/update-trans7.mjs
+
+      - name: Show playlist
+        run: |
+          echo "================================="
+          echo "ISI os4.m3u"
+          echo "================================="
+          cat os4.m3u
