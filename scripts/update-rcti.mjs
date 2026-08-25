@@ -1,32 +1,29 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
-const playlistPath = "os4.m3u";
-
 const channels = [
   {
     name: "RCTI",
     url: "https://www.rctiplus.com/tv/rcti",
-    pattern: /https:\/\/rcti-linier\.rctiplus\.id\/rcti-sdi\.m3u8\?hdnts=[^\s"']+/
+    outputFile: "stream-rcti.txt",
+    pattern:
+      /https:\/\/rcti-linier\.rctiplus\.id\/rcti-sdi\.m3u8\?hdnts=[^\s"']+/
   },
   {
     name: "MNCTV",
     url: "https://www.rctiplus.com/tv/mnctv",
-    pattern: /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=[^\s"']+/
+    outputFile: "stream-mnctv.txt",
+    pattern:
+      /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=[^\s"']+/
   },
   {
     name: "GTV",
     url: "https://www.rctiplus.com/tv/gtv",
-    pattern: /https:\/\/gtv-linier\.rctiplus\.id\/gtv-sdi\.m3u8\?hdnts=[^\s"']+/
+    outputFile: "stream-gtv.txt",
+    pattern:
+      /https:\/\/gtv-linier\.rctiplus\.id\/gtv-sdi\.m3u8\?hdnts=[^\s"']+/
   }
 ];
-
-if (!fs.existsSync(playlistPath)) {
-  console.error(`File tidak ditemukan: ${playlistPath}`);
-  process.exit(1);
-}
-
-let playlist = fs.readFileSync(playlistPath, "utf8");
 
 const browser = await chromium.launch({
   headless: true
@@ -35,6 +32,7 @@ const browser = await chromium.launch({
 const results = [];
 
 for (const channel of channels) {
+  console.log("");
   console.log(`Membuka ${channel.name}...`);
 
   const page = await browser.newPage();
@@ -81,12 +79,14 @@ for (const channel of channels) {
 
   results.push({
     name: channel.name,
+    outputFile: channel.outputFile,
     url: streamUrl
   });
 }
 
 await browser.close();
 
+console.log("");
 console.log("=================================");
 console.log("SEMUA STREAM BERHASIL DITEMUKAN");
 console.log("=================================");
@@ -95,44 +95,28 @@ for (const result of results) {
   console.log(`${result.name}: ${result.url}`);
 }
 
-/*
- * Ganti hanya URL stream di masing-masing blok.
- * Header #EXTVLCOPT dan channel lain tidak disentuh.
- */
+// ==========================================
+// SIMPAN URL KE FILE MASING-MASING
+// ==========================================
 
 for (const result of results) {
-  const escapedName = result.name.replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&"
+  fs.writeFileSync(
+    result.outputFile,
+    result.url.trim() + "\n",
+    "utf8"
   );
 
-const blockRegex = new RegExp(
-  `(#EXTINF:-1,${escapedName}\\r?\\n` +
-  `(?:#EXTVLCOPT:[^\\r\\n]*\\r?\\n)*)(https?://[^\\r\\n]+)`
-);
-
-  if (!blockRegex.test(playlist)) {
-    console.error(
-      `Blok ${result.name} tidak ditemukan di ${playlistPath}`
-    );
-
-    process.exit(1);
-  }
-
-  playlist = playlist.replace(
-    blockRegex,
-    `$1${result.url}`
+  console.log(
+    `${result.name} URL berhasil disimpan ke ${result.outputFile}.`
   );
-
-  console.log(`${result.name} URL berhasil diperbarui.`);
 }
 
-fs.writeFileSync(
-  playlistPath,
-  playlist,
-  "utf8"
-);
+console.log("");
+console.log("=================================");
+console.log("SEMUA FILE STREAM BERHASIL DIPERBARUI");
+console.log("=================================");
 
-console.log("=================================");
-console.log("os4.m3u BERHASIL DIPERBARUI");
-console.log("=================================");
+for (const result of results) {
+  console.log(`${result.outputFile}:`);
+  console.log(result.url);
+}
