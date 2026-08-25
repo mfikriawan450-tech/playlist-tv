@@ -30,7 +30,7 @@ const context = await browser.newContext({
 
 const page = await context.newPage();
 
-let foundUrl = null;
+let originalUrl = null;
 
 // ==========================================
 // DETEKSI REQUEST M3U8
@@ -41,7 +41,8 @@ page.on("request", request => {
 
   if (
     url.includes("dmcdn.net") &&
-    url.includes(".m3u8")
+    url.includes(".m3u8") &&
+    url.includes("x8qckyq")
   ) {
     console.log("");
     console.log("=================================");
@@ -49,13 +50,10 @@ page.on("request", request => {
     console.log("=================================");
     console.log(url);
 
-    // Prioritaskan stream Trans7
-    if (url.includes("x8qckyq")) {
-      foundUrl = url;
+    originalUrl = url;
 
-      console.log("");
-      console.log("TARGET TRANS7 DITEMUKAN!");
-    }
+    console.log("");
+    console.log("TARGET TRANS7 DITEMUKAN!");
   }
 });
 
@@ -68,18 +66,16 @@ page.on("response", response => {
 
   if (
     url.includes("dmcdn.net") &&
-    url.includes(".m3u8")
+    url.includes(".m3u8") &&
+    url.includes("x8qckyq")
   ) {
     console.log("");
     console.log("M3U8 RESPONSE");
     console.log("STATUS:", response.status());
     console.log(url);
 
-    if (
-      url.includes("x8qckyq") &&
-      response.status() === 200
-    ) {
-      foundUrl = url;
+    if (response.status() === 200) {
+      originalUrl = url;
 
       console.log("");
       console.log("TARGET TRANS7 RESPONSE 200!");
@@ -104,7 +100,7 @@ try {
 }
 
 // ==========================================
-// TUNGGU PLAYER
+// TUNGGU STREAM
 // ==========================================
 
 console.log("Menunggu player...");
@@ -117,10 +113,6 @@ const videos = await page.locator("video").count();
 
 console.log(`Frame memiliki ${videos} video.`);
 
-// ==========================================
-// PLAY SEMUA VIDEO
-// ==========================================
-
 for (let i = 0; i < videos; i++) {
   try {
     await page.locator("video").nth(i).evaluate(video => {
@@ -130,7 +122,7 @@ for (let i = 0; i < videos; i++) {
     });
 
     console.log(`Video ${i} diperintahkan play.`);
-  } catch (error) {
+  } catch {
     console.log(`Video ${i} gagal dimainkan.`);
   }
 }
@@ -165,8 +157,7 @@ try {
 console.log("Menunggu M3U8 Dailymotion...");
 
 for (let i = 0; i < 90; i++) {
-
-  if (foundUrl) {
+  if (originalUrl) {
     break;
   }
 
@@ -177,33 +168,103 @@ for (let i = 0; i < 90; i++) {
   }
 }
 
-// ==========================================
-// TUTUP BROWSER
-// ==========================================
-
 await browser.close();
+
+// ==========================================
+// HASIL DETEKSI
+// ==========================================
 
 console.log("");
 console.log("=================================");
 console.log("HASIL DETEKSI TRANS7");
 console.log("=================================");
 
-if (!foundUrl) {
+if (!originalUrl) {
   console.log("M3U8 TRANS7 TIDAK DITEMUKAN.");
   process.exit(1);
 }
 
 console.log("");
-console.log("URL TRANS7:");
-console.log(foundUrl);
+console.log("URL ASLI:");
+console.log(originalUrl);
 
 // ==========================================
-// SIMPAN KE stream-trans7.txt
+// COBA UBAH 240 → 720
+// ==========================================
+
+let finalUrl = originalUrl;
+
+if (originalUrl.includes("live-240.m3u8")) {
+
+  const url720 = originalUrl.replace(
+    "live-240.m3u8",
+    "live-720.m3u8"
+  );
+
+  console.log("");
+  console.log("=================================");
+  console.log("MENCOBA STREAM 720P");
+  console.log("=================================");
+  console.log(url720);
+
+  try {
+    const response720 = await fetch(url720, {
+      method: "GET",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/151.0.0.0 Safari/537.36",
+        "Referer": "https://sevenhub.id/"
+      },
+      redirect: "follow"
+    });
+
+    console.log("");
+    console.log("STATUS 720P:", response720.status);
+
+    if (response720.status === 200) {
+
+      finalUrl = url720;
+
+      console.log("");
+      console.log("=================================");
+      console.log("720P TERSEDIA!");
+      console.log("=================================");
+      console.log("Menggunakan URL 720P.");
+    } else {
+
+      console.log("");
+      console.log("=================================");
+      console.log("720P TIDAK TERSEDIA");
+      console.log("=================================");
+      console.log("Kembali menggunakan URL asli.");
+    }
+
+  } catch (error) {
+
+    console.log("");
+    console.log("GAGAL TEST 720P:");
+    console.log(error.message);
+
+    console.log("");
+    console.log("Menggunakan URL asli.");
+  }
+
+} else {
+
+  console.log("");
+  console.log("URL tidak menggunakan pola live-240.m3u8.");
+  console.log("URL asli akan digunakan.");
+}
+
+// ==========================================
+// SIMPAN URL FINAL
 // ==========================================
 
 fs.writeFileSync(
   OUTPUT_FILE,
-  foundUrl.trim() + "\n",
+  finalUrl.trim() + "\n",
   "utf8"
 );
 
@@ -211,9 +272,14 @@ console.log("");
 console.log("=================================");
 console.log("STREAM TRANS7 BERHASIL DIPERBARUI");
 console.log("=================================");
+
 console.log("");
-console.log("File:", OUTPUT_FILE);
+console.log("URL FINAL:");
+console.log(finalUrl);
+
 console.log("");
-console.log(foundUrl);
+console.log("FILE:");
+console.log(OUTPUT_FILE);
+
 console.log("");
 console.log("=================================");
