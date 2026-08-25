@@ -81,24 +81,51 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          echo "================================="
+          echo "CEK FILE TRANS7"
+          echo "================================="
+
+          echo "Isi stream-trans7.txt:"
+          cat stream-trans7.txt || true
+
+          echo ""
+          echo "================================="
+          echo "STATUS GIT"
+          echo "================================="
+
+          git status --short
+
+          echo ""
+          echo "================================="
+          echo "MENAMBAHKAN FILE"
+          echo "================================="
+
           git add os4.m3u
+          git add stream-trans7.txt
+
+          echo ""
+          echo "================================="
+          echo "PERUBAHAN YANG AKAN DI-COMMIT"
+          echo "================================="
+
+          git diff --cached --stat
+          git diff --cached
 
           if git diff --cached --quiet; then
-            echo "Tidak ada perubahan pada os4.m3u."
+            echo "Tidak ada perubahan."
             exit 0
           fi
 
           git commit -m "Update TV streams"
 
-          # Ambil perubahan terbaru dari remote
-          git fetch origin main
+          echo ""
+          echo "================================="
+          echo "PUSH"
+          echo "================================="
 
-          # Satukan commit workflow dengan main terbaru
-          git rebase origin/main
-
-          # Push hasil rebase
           git push origin HEAD:main
 
+          echo ""
           echo "================================="
           echo "PUSH BERHASIL"
           echo "================================="
