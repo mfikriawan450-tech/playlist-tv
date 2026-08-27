@@ -11,16 +11,16 @@ const channels = [
     name: "MNCTV",
     url: "https://www.rctiplus.com/tv/mnctv",
     outputFile: "stream-mnctv.txt"
-  },
-  {
-    name: "GTV",
-    url: "https://www.rctiplus.com/tv/gtv",
-    outputFile: "stream-gtv.txt"
   }
 ];
 
 const browser = await chromium.launch({
-  headless: false
+  headless: true,
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage"
+  ]
 });
 
 const results = [];
@@ -36,8 +36,7 @@ for (const channel of channels) {
   let streamUrl = null;
 
   // =====================================================
-  // TANGKAP SEMUA REQUEST
-  // HANYA PEDULI URL YANG MENGANDUNG .m3u8
+  // TANGKAP REQUEST .M3U8
   // =====================================================
 
   page.on("request", (request) => {
@@ -69,10 +68,14 @@ for (const channel of channels) {
     console.log(`${channel.name} halaman berhasil dibuka.`);
 
     // =====================================================
-    // TUNGGU REQUEST .m3u8
+    // TUNGGU REQUEST .M3U8
     // =====================================================
 
-    for (let second = 0; second < 60 && !streamUrl; second++) {
+    for (
+      let second = 0;
+      second < 60 && !streamUrl;
+      second++
+    ) {
       await page.waitForTimeout(1000);
 
       if (second % 5 === 0) {
@@ -93,7 +96,11 @@ for (const channel of channels) {
         `${channel.name} jumlah video element: ${videos}`
       );
 
-      for (let i = 0; i < videos && !streamUrl; i++) {
+      for (
+        let i = 0;
+        i < videos && !streamUrl;
+        i++
+      ) {
         try {
           await page
             .locator("video")
@@ -113,11 +120,15 @@ for (const channel of channels) {
         }
       }
 
-      // =====================================================
+      // ===================================================
       // TUNGGU LAGI SETELAH PLAY
-      // =====================================================
+      // ===================================================
 
-      for (let second = 0; second < 60 && !streamUrl; second++) {
+      for (
+        let second = 0;
+        second < 60 && !streamUrl;
+        second++
+      ) {
         await page.waitForTimeout(1000);
 
         if (second % 10 === 0) {
@@ -136,7 +147,7 @@ for (const channel of channels) {
   }
 
   // =====================================================
-  // TUTUP PAGE SETELAH SEMUA SCAN SELESAI
+  // TUTUP PAGE
   // =====================================================
 
   await page.close();
@@ -148,7 +159,9 @@ for (const channel of channels) {
   if (!streamUrl) {
     console.error("");
     console.error("=================================");
-    console.error(`${channel.name}: .m3u8 TIDAK DITEMUKAN`);
+    console.error(
+      `${channel.name}: .m3u8 TIDAK DITEMUKAN`
+    );
     console.error("=================================");
 
     await browser.close();
@@ -163,15 +176,15 @@ for (const channel of channels) {
   });
 }
 
-// =====================================================
+// =======================================================
 // TUTUP BROWSER
-// =====================================================
+// =======================================================
 
 await browser.close();
 
-// =====================================================
-// TAMPILKAN SEMUA HASIL
-// =====================================================
+// =======================================================
+// TAMPILKAN HASIL
+// =======================================================
 
 console.log("");
 console.log("=================================");
@@ -184,9 +197,9 @@ for (const result of results) {
   console.log(result.url);
 }
 
-// =====================================================
-// SIMPAN KE FILE
-// =====================================================
+// =======================================================
+// SIMPAN URL
+// =======================================================
 
 console.log("");
 console.log("=================================");
@@ -205,9 +218,9 @@ for (const result of results) {
   );
 }
 
-// =====================================================
+// =======================================================
 // SELESAI
-// =====================================================
+// =======================================================
 
 console.log("");
 console.log("=================================");
