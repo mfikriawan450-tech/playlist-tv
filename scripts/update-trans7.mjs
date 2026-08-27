@@ -181,7 +181,7 @@ console.log("=================================");
 
 if (!originalUrl) {
   console.log("M3U8 TRANS7 TIDAK DITEMUKAN.");
-  process.exit(1);
+  continue;
 }
 
 console.log("");
