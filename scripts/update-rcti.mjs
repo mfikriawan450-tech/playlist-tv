@@ -434,10 +434,7 @@ for (const channel of channels) {
       `${channel.name}: URL STREAM TIDAK DITEMUKAN`
     );
     console.error("=================================");
-
-    await browser.close();
-
-    process.exit(1);
+    continue;
   }
 
   results.push({
