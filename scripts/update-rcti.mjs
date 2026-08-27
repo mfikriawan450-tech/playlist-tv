@@ -1,319 +1,390 @@
 import { chromium } from "playwright";
 import fs from "fs";
 
+const channels = [
+  {
+    name: "RCTI",
+    url: "https://www.rctiplus.com/tv/rcti",
+    outputFile: "stream-rcti.txt",
+    pattern:
+      /https:\/\/rcti-linier\.rctiplus\.id\/rcti-sdi\.m3u8\?hdnts=[^\s"']+/
+  },
+  {
+    name: "MNCTV",
+    url: "https://www.rctiplus.com/tv/mnctv",
+    outputFile: "stream-mnctv.txt",
+    pattern:
+      /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=[^\s"']+/
+  },
+  {
+    name: "GTV",
+    url: "https://www.rctiplus.com/tv/gtv",
+    outputFile: "stream-gtv.txt",
+    pattern:
+      /^https:\/\/gtv-linier\.rctiplus\.id\/.*\.m3u8/
+  }
+];
+
 const browser = await chromium.launch({
   headless: true
 });
 
-const page = await browser.newPage();
+const results = [];
 
-console.log("");
-console.log("=================================");
-console.log("INVESTIGASI GTV");
-console.log("=================================");
+for (const channel of channels) {
+  console.log("");
+  console.log("=================================");
+  console.log(`MEMBUKA ${channel.name}`);
+  console.log("=================================");
 
-// =====================================================
-// REQUEST
-// =====================================================
+  const page = await browser.newPage();
 
-page.on("request", request => {
-  const url = request.url();
+  let streamUrl = null;
 
-  if (
-    url.includes("gtv") ||
-    url.includes("rctiplus") ||
-    url.includes("m3u8") ||
-    url.includes("hdntl") ||
-    url.includes("jwplayer")
-  ) {
-    console.log("");
-    console.log("[REQUEST]");
-    console.log(url);
-  }
-});
+  // =========================================================
+  // REQUEST DEBUG
+  // =========================================================
 
-// =====================================================
-// RESPONSE
-// =====================================================
+  page.on("request", (request) => {
+    const url = request.url();
 
-page.on("response", response => {
-  const url = response.url();
+    const lower = url.toLowerCase();
 
-  if (
-    url.includes("gtv") ||
-    url.includes("rctiplus") ||
-    url.includes("m3u8") ||
-    url.includes("hdntl") ||
-    url.includes("jwplayer")
-  ) {
-    console.log("");
-    console.log("[RESPONSE]");
-    console.log(response.status());
-    console.log(url);
-  }
-});
+    // RCTI / MNCTV / GTV normal detection
+    if (channel.pattern.test(url) && !streamUrl) {
+      streamUrl = url;
 
-// =====================================================
-// BUKA GTV
-// =====================================================
-
-console.log("");
-console.log("Membuka GTV...");
-
-try {
-
-  await page.goto(
-    "https://www.rctiplus.com/tv/gtv",
-    {
-      waitUntil: "domcontentloaded",
-      timeout: 60000
+      console.log("");
+      console.log(`${channel.name} STREAM DITEMUKAN`);
+      console.log("Sumber: request");
+      console.log("");
+      console.log(streamUrl);
+      console.log("");
     }
-  );
 
-  console.log("GTV berhasil dibuka.");
+    // DEBUG KHUSUS GTV
+    if (
+      channel.name === "GTV" &&
+      (
+        lower.includes("gtv") ||
+        lower.includes("linier") ||
+        lower.includes("m3u8") ||
+        lower.includes("hdntl") ||
+        lower.includes("hls")
+      )
+    ) {
+      console.log("");
+      console.log("---------- GTV REQUEST ----------");
+      console.log(request.method());
+      console.log(url);
+      console.log("---------------------------------");
+    }
+  });
 
-} catch (error) {
+  // =========================================================
+  // RESPONSE DEBUG
+  // =========================================================
 
-  console.log(
-    "Gagal membuka GTV:",
-    error.message
-  );
-}
+  page.on("response", async (response) => {
+    const url = response.url();
+    const lower = url.toLowerCase();
 
-// =====================================================
-// TUNGGU
-// =====================================================
+    if (
+      channel.name === "GTV" &&
+      (
+        lower.includes("gtv") ||
+        lower.includes("linier") ||
+        lower.includes("m3u8") ||
+        lower.includes("hdntl") ||
+        lower.includes("hls")
+      )
+    ) {
+      console.log("");
+      console.log("---------- GTV RESPONSE ----------");
+      console.log(response.status());
+      console.log(url);
+      console.log("----------------------------------");
+    }
+  });
 
-console.log("");
-console.log("Menunggu player GTV...");
+  // =========================================================
+  // CONSOLE BROWSER
+  // =========================================================
 
-for (let i = 0; i < 60; i++) {
+  page.on("console", (msg) => {
+    if (channel.name === "GTV") {
+      console.log("");
+      console.log("GTV BROWSER CONSOLE:");
+      console.log(msg.text());
+    }
+  });
 
-  await page.waitForTimeout(1000);
+  // =========================================================
+  // PAGE ERROR
+  // =========================================================
 
-  if (i % 10 === 0) {
-    console.log(`Menunggu ${i} detik...`);
-  }
-}
-
-// =====================================================
-// VIDEO
-// =====================================================
-
-console.log("");
-console.log("=================================");
-console.log("VIDEO ELEMENT");
-console.log("=================================");
-
-const videos = await page.locator("video").count();
-
-console.log("Jumlah video:", videos);
-
-for (let i = 0; i < videos; i++) {
+  page.on("pageerror", (error) => {
+    if (channel.name === "GTV") {
+      console.log("");
+      console.log("GTV PAGE ERROR:");
+      console.log(error.message);
+    }
+  });
 
   try {
+    await page.goto(channel.url, {
+      waitUntil: "domcontentloaded",
+      timeout: 60000
+    });
 
-    const info = await page.locator("video").nth(i).evaluate(video => ({
-      src: video.src,
-      currentSrc: video.currentSrc,
-      paused: video.paused,
-      readyState: video.readyState
-    }));
+    console.log(`${channel.name} halaman berhasil dibuka.`);
 
-    console.log("");
-    console.log(`VIDEO ${i + 1}`);
-    console.log(info);
+    // =======================================================
+    // TUNGGU HALAMAN SELESAI LOAD
+    // =======================================================
 
-  } catch (error) {
+    await page.waitForTimeout(5000);
+
+    // =======================================================
+    // CEK VIDEO
+    // =======================================================
+
+    const videoCount = await page.locator("video").count();
 
     console.log(
-      "Gagal membaca video:",
+      `${channel.name} jumlah video element: ${videoCount}`
+    );
+
+    for (let i = 0; i < videoCount; i++) {
+      try {
+        await page.locator("video").nth(i).evaluate((video) => {
+          video.muted = true;
+          video.play().catch(() => {});
+        });
+
+        console.log(
+          `${channel.name} video ${i + 1} dicoba dijalankan.`
+        );
+      } catch (error) {
+        console.log(
+          `${channel.name} video ${i + 1} gagal: ${error.message}`
+        );
+      }
+    }
+
+    // =======================================================
+    // CARI TOMBOL PLAY
+    // =======================================================
+
+    const selectors = [
+      '[aria-label*="Play"]',
+      '[aria-label*="play"]',
+      'button[class*="play"]',
+      '[class*="play"]'
+    ];
+
+    for (const selector of selectors) {
+      try {
+        const count = await page.locator(selector).count();
+
+        if (count > 0) {
+          console.log(
+            `${channel.name} menemukan tombol: ${selector}`
+          );
+
+          for (let i = 0; i < Math.min(count, 3); i++) {
+            try {
+              await page.locator(selector).nth(i).click({
+                timeout: 3000
+              });
+
+              console.log(
+                `${channel.name} tombol play ${i + 1} diklik.`
+              );
+            } catch {}
+          }
+        }
+      } catch {}
+    }
+
+    // =======================================================
+    // TUNGGU STREAM
+    // =======================================================
+
+    console.log(
+      `${channel.name} menunggu URL stream...`
+    );
+
+    for (let i = 0; i < 60 && !streamUrl; i++) {
+      await page.waitForTimeout(1000);
+
+      if (i % 10 === 0) {
+        console.log(
+          `${channel.name} masih menunggu... ${i} detik`
+        );
+      }
+    }
+
+    // =======================================================
+    // KHUSUS GTV:
+    // CEK VIDEO SRC
+    // =======================================================
+
+    if (channel.name === "GTV" && !streamUrl) {
+      console.log("");
+      console.log("=================================");
+      console.log("PEMERIKSAAN VIDEO GTV");
+      console.log("=================================");
+
+      const videos = await page.locator("video").evaluateAll(
+        (elements) =>
+          elements.map((video) => ({
+            src: video.src,
+            currentSrc: video.currentSrc,
+            readyState: video.readyState,
+            networkState: video.networkState
+          }))
+      );
+
+      console.log(JSON.stringify(videos, null, 2));
+    }
+
+    // =======================================================
+    // KHUSUS GTV:
+    // CEK SOURCE TAG
+    // =======================================================
+
+    if (channel.name === "GTV" && !streamUrl) {
+      console.log("");
+      console.log("=================================");
+      console.log("PEMERIKSAAN SOURCE GTV");
+      console.log("=================================");
+
+      const sources = await page.locator("source").evaluateAll(
+        (elements) =>
+          elements.map((source) => ({
+            src: source.src,
+            type: source.type
+          }))
+      );
+
+      console.log(JSON.stringify(sources, null, 2));
+    }
+
+    // =======================================================
+    // KHUSUS GTV:
+    // CEK PERFORMANCE RESOURCE
+    // =======================================================
+
+    if (channel.name === "GTV" && !streamUrl) {
+      console.log("");
+      console.log("=================================");
+      console.log("PEMERIKSAAN RESOURCE GTV");
+      console.log("=================================");
+
+      const resources = await page.evaluate(() =>
+        performance
+          .getEntriesByType("resource")
+          .map((entry) => entry.name)
+          .filter((url) => {
+            const lower = url.toLowerCase();
+
+            return (
+              lower.includes("gtv") ||
+              lower.includes("linier") ||
+              lower.includes("m3u8") ||
+              lower.includes("hdntl") ||
+              lower.includes("hls")
+            );
+          })
+      );
+
+      if (resources.length === 0) {
+        console.log("Tidak ada resource terkait GTV.");
+      } else {
+        for (const resource of resources) {
+          console.log(resource);
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error(
+      `${channel.name} gagal dibuka:`,
       error.message
     );
   }
-}
 
-// =====================================================
-// PERFORMANCE RESOURCE
-// =====================================================
+  await page.close();
 
-console.log("");
-console.log("=================================");
-console.log("SEMUA RESOURCE");
-console.log("=================================");
+  // =========================================================
+  // JIKA TIDAK DITEMUKAN
+  // =========================================================
 
-try {
-
-  const resources = await page.evaluate(() =>
-    performance
-      .getEntriesByType("resource")
-      .map(x => x.name)
-  );
-
-  console.log(
-    "Jumlah resource:",
-    resources.length
-  );
-
-  for (const url of resources) {
-
-    console.log(url);
-  }
-
-} catch (error) {
-
-  console.log(
-    "Gagal membaca resource:",
-    error.message
-  );
-}
-
-// =====================================================
-// LOCAL STORAGE
-// =====================================================
-
-console.log("");
-console.log("=================================");
-console.log("LOCAL STORAGE");
-console.log("=================================");
-
-try {
-
-  const localStorage = await page.evaluate(() => {
-
-    const result = {};
-
-    for (let i = 0; i < window.localStorage.length; i++) {
-
-      const key = window.localStorage.key(i);
-
-      result[key] = window.localStorage.getItem(key);
-    }
-
-    return result;
-  });
-
-  console.log(
-    JSON.stringify(localStorage, null, 2)
-  );
-
-} catch (error) {
-
-  console.log(
-    "Gagal membaca localStorage:",
-    error.message
-  );
-}
-
-// =====================================================
-// SESSION STORAGE
-// =====================================================
-
-console.log("");
-console.log("=================================");
-console.log("SESSION STORAGE");
-console.log("=================================");
-
-try {
-
-  const sessionStorage = await page.evaluate(() => {
-
-    const result = {};
-
-    for (let i = 0; i < window.sessionStorage.length; i++) {
-
-      const key = window.sessionStorage.key(i);
-
-      result[key] =
-        window.sessionStorage.getItem(key);
-    }
-
-    return result;
-  });
-
-  console.log(
-    JSON.stringify(sessionStorage, null, 2)
-  );
-
-} catch (error) {
-
-  console.log(
-    "Gagal membaca sessionStorage:",
-    error.message
-  );
-}
-
-// =====================================================
-// COOKIES
-// =====================================================
-
-console.log("");
-console.log("=================================");
-console.log("COOKIES");
-console.log("=================================");
-
-try {
-
-  const cookies = await page.context().cookies();
-
-  for (const cookie of cookies) {
-
-    console.log(
-      `${cookie.name}=${cookie.value}`
+  if (!streamUrl) {
+    console.error("");
+    console.error(
+      `${channel.name}: URL stream tidak ditemukan.`
     );
+
+    if (channel.name === "GTV") {
+      console.error("");
+      console.error(
+        "DEBUG GTV selesai. Lihat log REQUEST, RESPONSE,"
+      );
+      console.error(
+        "VIDEO, SOURCE, dan RESOURCE di atas."
+      );
+    }
+
+    await browser.close();
+    process.exit(1);
   }
 
-} catch (error) {
-
-  console.log(
-    "Gagal membaca cookies:",
-    error.message
-  );
+  results.push({
+    name: channel.name,
+    outputFile: channel.outputFile,
+    url: streamUrl
+  });
 }
 
-// =====================================================
-// HTML
-// =====================================================
+await browser.close();
+
+// ===========================================================
+// HASIL
+// ===========================================================
 
 console.log("");
 console.log("=================================");
-console.log("HTML INFO");
+console.log("SEMUA STREAM BERHASIL DITEMUKAN");
 console.log("=================================");
 
-try {
+for (const result of results) {
+  console.log(`${result.name}: ${result.url}`);
+}
 
-  const html = await page.content();
+// ===========================================================
+// SIMPAN FILE
+// ===========================================================
 
-  console.log(
-    "Panjang HTML:",
-    html.length
-  );
-
+for (const result of results) {
   fs.writeFileSync(
-    "debug-gtv.html",
-    html,
+    result.outputFile,
+    result.url.trim() + "\n",
     "utf8"
   );
 
   console.log(
-    "HTML disimpan ke debug-gtv.html"
-  );
-
-} catch (error) {
-
-  console.log(
-    "Gagal menyimpan HTML:",
-    error.message
+    `${result.name} URL berhasil disimpan ke ${result.outputFile}.`
   );
 }
 
-// =====================================================
-// SELESAI
-// =====================================================
-
 console.log("");
 console.log("=================================");
-console.log("INVESTIGASI SELESAI");
+console.log("SEMUA FILE STREAM BERHASIL DIPERBARUI");
 console.log("=================================");
 
-await browser.close();
+for (const result of results) {
+  console.log(`${result.outputFile}:`);
+  console.log(result.url);
+}
