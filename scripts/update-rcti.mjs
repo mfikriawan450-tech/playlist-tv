@@ -16,13 +16,13 @@ const channels = [
     pattern:
       /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=[^\s"']+/
   },
-  {
-    name: "GTV",
-    url: "https://www.rctiplus.com/tv/gtv",
-    outputFile: "stream-gtv.txt",
-    pattern:
-      /https:\/\/gtv-linier\.rctiplus\.id\/gtv-sdi\.m3u8\?hdnts=[^\s"']+/
-  }
+{
+  name: "GTV",
+  url: "https://www.rctiplus.com/tv/gtv",
+  outputFile: "stream-gtv.txt",
+  pattern:
+    /^https:\/\/gtv-linier\.rctiplus\.id\/.*\.m3u8/
+}
 ];
 
 const browser = await chromium.launch({
