@@ -1,1 +1,1 @@
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787909317~hmac=06f7dbd010267b6a81eaa2d09803cf1d08a093e3efafc10330967fb4519d33aa
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787909636~hmac=041ad3c1d05bc6ebfc7383cbe81b345fa1cb408213654287f583e7a30f66b6b0
