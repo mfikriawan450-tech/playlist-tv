@@ -16,7 +16,7 @@ const channels = [
   },
   {
     name: "GTV",
-    url: "https://www.rctiplus.com/tv/gtv",
+    url: "https://digital.okezone.com/streaming/gtv",
     outputFile: "stream-gtv.txt",
     host: "gtv-linier.rctiplus.id"
   }
