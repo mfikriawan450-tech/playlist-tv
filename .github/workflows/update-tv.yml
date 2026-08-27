@@ -101,6 +101,9 @@ jobs:
           echo "================================="
 
           git add os4.m3u
+          git add stream-rcti.txt
+          git add stream-mnctv.txt
+          git add stream-gtv.txt
           git add stream-trans7.txt
 
           echo ""
