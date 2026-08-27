@@ -1,1 +1,1 @@
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787705760~hmac=8cd5f5e182d218c0937d6fdef086e3c32335397be303ded861d2c33459a6b2e2
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787852796~hmac=ef0c770ec60ce20327b61c68a5ffd6ef1423a5d1de139c89b1d86aa073b3ad7e
