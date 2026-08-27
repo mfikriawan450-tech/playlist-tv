@@ -5,27 +5,67 @@ const channels = [
   {
     name: "RCTI",
     url: "https://www.rctiplus.com/tv/rcti",
-    outputFile: "stream-rcti.txt"
+    outputFile: "stream-rcti.txt",
+    host: "rcti-linier.rctiplus.id"
   },
   {
     name: "MNCTV",
     url: "https://www.rctiplus.com/tv/mnctv",
-    outputFile: "stream-mnctv.txt"
+    outputFile: "stream-mnctv.txt",
+    host: "mnctv-linier.rctiplus.id"
+  },
+  {
+    name: "GTV",
+    url: "https://www.rctiplus.com/tv/gtv",
+    outputFile: "stream-gtv.txt",
+    host: "gtv-linier.rctiplus.id"
   }
 ];
 
 const browser = await chromium.launch({
-  headless: true,
-  args: [
-    "--no-sandbox",
-    "--disable-setuid-sandbox",
-    "--disable-dev-shm-usage"
-  ]
+  headless: true
 });
 
 const results = [];
 
-for (const channel of channels) {
+function isM3U8(url) {
+  return url.toLowerCase().includes(".m3u8");
+}
+
+function isChannelStream(url, channel) {
+  const lower = url.toLowerCase();
+
+  return (
+    lower.includes(channel.host.toLowerCase()) &&
+    lower.includes(".m3u8")
+  );
+}
+
+function extractM3U8FromText(text, channel) {
+  if (!text) {
+    return null;
+  }
+
+  const escapedHost = channel.host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  const regex = new RegExp(
+    `https?:\\/\\/${escapedHost}[^\\s"'<>\\\\]+?\\.m3u8(?:\\?[^\\s"'<>\\\\]+)?`,
+    "i"
+  );
+
+  const match = text.match(regex);
+
+  if (match) {
+    return match[0]
+      .replace(/&amp;/g, "&")
+      .replace(/\\u0026/g, "&")
+      .trim();
+  }
+
+  return null;
+}
+
+async function findStream(channel) {
   console.log("");
   console.log("=================================");
   console.log(`MEMBUKA ${channel.name}`);
@@ -36,16 +76,17 @@ for (const channel of channels) {
   let streamUrl = null;
 
   // =====================================================
-  // TANGKAP REQUEST .M3U8
+  // REQUEST
   // =====================================================
 
   page.on("request", (request) => {
+    if (streamUrl) {
+      return;
+    }
+
     const url = request.url();
 
-    if (
-      !streamUrl &&
-      url.toLowerCase().includes(".m3u8")
-    ) {
+    if (isChannelStream(url, channel)) {
       streamUrl = url;
 
       console.log("");
@@ -59,6 +100,33 @@ for (const channel of channels) {
     }
   });
 
+  // =====================================================
+  // RESPONSE
+  // =====================================================
+
+  page.on("response", async (response) => {
+    if (streamUrl) {
+      return;
+    }
+
+    const url = response.url();
+
+    if (!isChannelStream(url, channel)) {
+      return;
+    }
+
+    streamUrl = url;
+
+    console.log("");
+    console.log("=================================");
+    console.log(`${channel.name} STREAM DITEMUKAN`);
+    console.log("=================================");
+    console.log("Sumber: response");
+    console.log("");
+    console.log(streamUrl);
+    console.log("");
+  });
+
   try {
     await page.goto(channel.url, {
       waitUntil: "domcontentloaded",
@@ -68,25 +136,23 @@ for (const channel of channels) {
     console.log(`${channel.name} halaman berhasil dibuka.`);
 
     // =====================================================
-    // TUNGGU REQUEST .M3U8
+    // TUNGGU PLAYER
     // =====================================================
 
     for (
       let second = 0;
-      second < 60 && !streamUrl;
+      second < 20 && !streamUrl;
       second++
     ) {
       await page.waitForTimeout(1000);
 
-      if (second % 5 === 0) {
-        console.log(
-          `${channel.name} menunggu .m3u8... ${second + 1} detik`
-        );
-      }
+      console.log(
+        `${channel.name} menunggu player... ${second + 1} detik`
+      );
     }
 
     // =====================================================
-    // KALAU BELUM KETEMU, COBA PLAY VIDEO
+    // COBA PLAY SEMUA VIDEO
     // =====================================================
 
     if (!streamUrl) {
@@ -107,7 +173,12 @@ for (const channel of channels) {
             .nth(i)
             .evaluate((video) => {
               video.muted = true;
-              video.play().catch(() => {});
+
+              const promise = video.play();
+
+              if (promise) {
+                promise.catch(() => {});
+              }
             });
 
           console.log(
@@ -119,10 +190,98 @@ for (const channel of channels) {
           );
         }
       }
+    }
 
-      // ===================================================
-      // TUNGGU LAGI SETELAH PLAY
-      // ===================================================
+    // =====================================================
+    // COBA TOMBOL PLAY JWPLAYER
+    // =====================================================
+
+    if (!streamUrl) {
+      const selectors = [
+        '[aria-label*="Play"]',
+        'button[class*="play"]',
+        ".jw-icon-playback",
+        ".jw-display-icon-container",
+        ".jw-display-icon-display"
+      ];
+
+      for (const selector of selectors) {
+        if (streamUrl) {
+          break;
+        }
+
+        try {
+          const count = await page.locator(selector).count();
+
+          if (count > 0) {
+            console.log(
+              `${channel.name} menemukan tombol: ${selector}`
+            );
+
+            for (let i = 0; i < count; i++) {
+              try {
+                await page
+                  .locator(selector)
+                  .nth(i)
+                  .click({
+                    force: true,
+                    timeout: 3000
+                  });
+
+                await page.waitForTimeout(1000);
+
+                if (streamUrl) {
+                  break;
+                }
+              } catch {
+                // abaikan
+              }
+            }
+          }
+        } catch {
+          // abaikan
+        }
+      }
+    }
+
+    // =====================================================
+    // KHUSUS GTV
+    //
+    // GTV tidak mengeluarkan URL lewat video.src.
+    // Jadi kita fokus menunggu REQUEST/RESPONSE .m3u8.
+    // =====================================================
+
+    if (!streamUrl && channel.name === "GTV") {
+      console.log("");
+      console.log("=================================");
+      console.log("MODE KHUSUS GTV");
+      console.log("=================================");
+      console.log("Fokus mencari request .m3u8 GTV.");
+
+      for (
+        let second = 0;
+        second < 90 && !streamUrl;
+        second++
+      ) {
+        await page.waitForTimeout(1000);
+
+        if (second % 10 === 0) {
+          console.log(
+            `GTV masih mencari .m3u8... ${second} detik`
+          );
+        }
+      }
+    }
+
+    // =====================================================
+    // UNTUK RCTI / MNCTV
+    // =====================================================
+
+    if (!streamUrl && channel.name !== "GTV") {
+      console.log("");
+      console.log(
+        `${channel.name} menunggu URL stream setelah Play...`
+      );
 
       for (
         let second = 0;
@@ -133,9 +292,115 @@ for (const channel of channels) {
 
         if (second % 10 === 0) {
           console.log(
-            `${channel.name} menunggu .m3u8 setelah Play... ${second} detik`
+            `${channel.name} masih menunggu... ${second} detik`
           );
         }
+      }
+    }
+
+    // =====================================================
+    // LAST CHANCE:
+    // PERIKSA SOURCE VIDEO
+    // =====================================================
+
+    if (!streamUrl) {
+      try {
+        const videoInfo = await page
+          .locator("video")
+          .evaluateAll((videos) =>
+            videos.map((video) => ({
+              src: video.src || "",
+              currentSrc: video.currentSrc || "",
+              readyState: video.readyState,
+              networkState: video.networkState
+            }))
+          );
+
+        console.log("");
+        console.log("=================================");
+        console.log(`PEMERIKSAAN VIDEO ${channel.name}`);
+        console.log("=================================");
+        console.log(JSON.stringify(videoInfo, null, 2));
+
+        for (const video of videoInfo) {
+          if (
+            video.currentSrc &&
+            isChannelStream(video.currentSrc, channel)
+          ) {
+            streamUrl = video.currentSrc;
+            break;
+          }
+
+          if (
+            video.src &&
+            isChannelStream(video.src, channel)
+          ) {
+            streamUrl = video.src;
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(
+          `${channel.name} gagal membaca video: ${error.message}`
+        );
+      }
+    }
+
+    // =====================================================
+    // LAST CHANCE:
+    // CARI URL M3U8 DARI ATTRIBUTE / SCRIPT
+    // BUKAN SELURUH HTML
+    // =====================================================
+
+    if (!streamUrl) {
+      try {
+        const candidates = await page.evaluate((host) => {
+          const found = new Set();
+
+          const elements = document.querySelectorAll(
+            "script, source, video, audio, iframe"
+          );
+
+          for (const element of elements) {
+            for (const attr of element.attributes || []) {
+              const value = attr.value || "";
+
+              if (
+                value.includes(host) &&
+                value.toLowerCase().includes(".m3u8")
+              ) {
+                found.add(value);
+              }
+            }
+
+            const text = element.textContent || "";
+
+            if (
+              text.includes(host) &&
+              text.toLowerCase().includes(".m3u8")
+            ) {
+              found.add(text);
+            }
+          }
+
+          return Array.from(found);
+        }, channel.host);
+
+        for (const candidate of candidates) {
+          const extracted = extractM3U8FromText(
+            candidate,
+            channel
+          );
+
+          if (extracted) {
+            streamUrl = extracted;
+            break;
+          }
+        }
+      } catch (error) {
+        console.log(
+          `${channel.name} gagal membaca candidate: ${error.message}`
+        );
       }
     }
 
@@ -147,20 +412,26 @@ for (const channel of channels) {
   }
 
   // =====================================================
-  // TUTUP PAGE
+  // CLOSE PAGE
   // =====================================================
 
   await page.close();
 
-  // =====================================================
-  // CEK HASIL
-  // =====================================================
+  return streamUrl;
+}
+
+// =========================================================
+// PROSES SEMUA CHANNEL
+// =========================================================
+
+for (const channel of channels) {
+  const streamUrl = await findStream(channel);
 
   if (!streamUrl) {
     console.error("");
     console.error("=================================");
     console.error(
-      `${channel.name}: .m3u8 TIDAK DITEMUKAN`
+      `${channel.name}: URL STREAM TIDAK DITEMUKAN`
     );
     console.error("=================================");
 
@@ -176,15 +447,15 @@ for (const channel of channels) {
   });
 }
 
-// =======================================================
-// TUTUP BROWSER
-// =======================================================
+// =========================================================
+// CLOSE BROWSER
+// =========================================================
 
 await browser.close();
 
-// =======================================================
-// TAMPILKAN HASIL
-// =======================================================
+// =========================================================
+// HASIL
+// =========================================================
 
 console.log("");
 console.log("=================================");
@@ -197,9 +468,9 @@ for (const result of results) {
   console.log(result.url);
 }
 
-// =======================================================
-// SIMPAN URL
-// =======================================================
+// =========================================================
+// SIMPAN
+// =========================================================
 
 console.log("");
 console.log("=================================");
@@ -218,9 +489,9 @@ for (const result of results) {
   );
 }
 
-// =======================================================
+// =========================================================
 // SELESAI
-// =======================================================
+// =========================================================
 
 console.log("");
 console.log("=================================");
