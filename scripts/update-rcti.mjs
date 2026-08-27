@@ -20,7 +20,7 @@ const channels = [
 ];
 
 const browser = await chromium.launch({
-  headless: true
+  headless: false
 });
 
 const results = [];
