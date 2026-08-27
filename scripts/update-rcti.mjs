@@ -16,13 +16,13 @@ const channels = [
     pattern:
       /https:\/\/mnctv-linier\.rctiplus\.id\/mnctv-sdi\.m3u8\?hdnts=[^\s"']+/
   },
-{
-  name: "GTV",
-  url: "https://www.rctiplus.com/tv/gtv",
-  outputFile: "stream-gtv.txt",
-  pattern:
-    /^https:\/\/gtv-linier\.rctiplus\.id\/.*\.m3u8/
-}
+  {
+    name: "GTV",
+    url: "https://www.rctiplus.com/tv/gtv",
+    outputFile: "stream-gtv.txt",
+    pattern:
+      /^https:\/\/gtv-linier\.rctiplus\.id\/.*\/gtv-sdi-avc1_.*\.m3u8$/
+  }
 ];
 
 const browser = await chromium.launch({
@@ -33,7 +33,9 @@ const results = [];
 
 for (const channel of channels) {
   console.log("");
-  console.log(`Membuka ${channel.name}...`);
+  console.log("=================================");
+  console.log(`MEMBUKA ${channel.name}`);
+  console.log("=================================");
 
   const page = await browser.newPage();
 
@@ -42,11 +44,49 @@ for (const channel of channels) {
   page.on("request", (request) => {
     const url = request.url();
 
-    if (channel.pattern.test(url) && !streamUrl) {
-      streamUrl = url;
+    // ==========================================
+    // DEBUG KHUSUS GTV
+    // ==========================================
 
-      console.log(`${channel.name} STREAM DITEMUKAN:`);
-      console.log(streamUrl);
+    if (
+      channel.name === "GTV" &&
+      url.includes("gtv-linier.rctiplus.id")
+    ) {
+      console.log("GTV REQUEST:");
+      console.log(url);
+    }
+
+    // ==========================================
+    // DETEKSI STREAM
+    // ==========================================
+
+    if (channel.name === "GTV") {
+      // GTV menggunakan URL dengan hdntl
+      // dan playlist gtv-sdi-avc1_....
+      if (
+        url.includes("gtv-linier.rctiplus.id") &&
+        url.includes("/hdntl=") &&
+        url.includes("gtv-sdi-avc1_") &&
+        url.endsWith(".m3u8") &&
+        !streamUrl
+      ) {
+        streamUrl = url;
+
+        console.log("");
+        console.log("GTV STREAM DITEMUKAN:");
+        console.log(streamUrl);
+        console.log("");
+      }
+    } else {
+      // RCTI dan MNCTV
+      if (channel.pattern.test(url) && !streamUrl) {
+        streamUrl = url;
+
+        console.log("");
+        console.log(`${channel.name} STREAM DITEMUKAN:`);
+        console.log(streamUrl);
+        console.log("");
+      }
     }
   });
 
@@ -56,7 +96,8 @@ for (const channel of channels) {
       timeout: 60000
     });
 
-    for (let i = 0; i < 30 && !streamUrl; i++) {
+    // Tunggu maksimal 60 detik
+    for (let i = 0; i < 60 && !streamUrl; i++) {
       await page.waitForTimeout(1000);
     }
   } catch (error) {
@@ -68,7 +109,12 @@ for (const channel of channels) {
 
   await page.close();
 
+  // ==========================================
+  // CEK HASIL
+  // ==========================================
+
   if (!streamUrl) {
+    console.error("");
     console.error(
       `${channel.name}: URL stream tidak ditemukan.`
     );
@@ -86,17 +132,23 @@ for (const channel of channels) {
 
 await browser.close();
 
+// ==========================================
+// SEMUA STREAM DITEMUKAN
+// ==========================================
+
 console.log("");
 console.log("=================================");
 console.log("SEMUA STREAM BERHASIL DITEMUKAN");
 console.log("=================================");
 
 for (const result of results) {
-  console.log(`${result.name}: ${result.url}`);
+  console.log("");
+  console.log(`${result.name}:`);
+  console.log(result.url);
 }
 
 // ==========================================
-// SIMPAN URL KE FILE MASING-MASING
+// SIMPAN URL KE FILE
 // ==========================================
 
 for (const result of results) {
@@ -111,12 +163,17 @@ for (const result of results) {
   );
 }
 
+// ==========================================
+// HASIL AKHIR
+// ==========================================
+
 console.log("");
 console.log("=================================");
 console.log("SEMUA FILE STREAM BERHASIL DIPERBARUI");
 console.log("=================================");
 
 for (const result of results) {
+  console.log("");
   console.log(`${result.outputFile}:`);
   console.log(result.url);
 }
