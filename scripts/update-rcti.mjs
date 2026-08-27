@@ -28,42 +28,42 @@ const browser = await chromium.launch({
 
 const results = [];
 
+/*
+ * =========================================================
+ * CEK URL M3U8
+ * =========================================================
+ */
+
 function isM3U8(url) {
-  return url.toLowerCase().includes(".m3u8");
+  return (
+    typeof url === "string" &&
+    url.toLowerCase().includes(".m3u8")
+  );
 }
+
+/*
+ * =========================================================
+ * CEK URL SESUAI CHANNEL
+ * =========================================================
+ */
 
 function isChannelStream(url, channel) {
+  if (!isM3U8(url)) {
+    return false;
+  }
+
   const lower = url.toLowerCase();
 
-  return (
-    lower.includes(channel.host.toLowerCase()) &&
-    lower.includes(".m3u8")
+  return lower.includes(
+    channel.host.toLowerCase()
   );
 }
 
-function extractM3U8FromText(text, channel) {
-  if (!text) {
-    return null;
-  }
-
-  const escapedHost = channel.host.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-  const regex = new RegExp(
-    `https?:\\/\\/${escapedHost}[^\\s"'<>\\\\]+?\\.m3u8(?:\\?[^\\s"'<>\\\\]+)?`,
-    "i"
-  );
-
-  const match = text.match(regex);
-
-  if (match) {
-    return match[0]
-      .replace(/&amp;/g, "&")
-      .replace(/\\u0026/g, "&")
-      .trim();
-  }
-
-  return null;
-}
+/*
+ * =========================================================
+ * CARI STREAM CHANNEL
+ * =========================================================
+ */
 
 async function findStream(channel) {
   console.log("");
@@ -75,23 +75,29 @@ async function findStream(channel) {
 
   let streamUrl = null;
 
-  // =====================================================
-  // REQUEST
-  // =====================================================
+  /*
+   * =======================================================
+   * REQUEST
+   * =======================================================
+   */
 
-  page.on("request", (request) => {
+  page.on("request", request => {
     if (streamUrl) {
       return;
     }
 
     const url = request.url();
 
+    /*
+     * HANYA TERIMA URL M3U8
+     */
+
     if (isChannelStream(url, channel)) {
       streamUrl = url;
 
       console.log("");
       console.log("=================================");
-      console.log(`${channel.name} STREAM DITEMUKAN`);
+      console.log(`${channel.name} M3U8 DITEMUKAN`);
       console.log("=================================");
       console.log("Sumber: request");
       console.log("");
@@ -100,32 +106,42 @@ async function findStream(channel) {
     }
   });
 
-  // =====================================================
-  // RESPONSE
-  // =====================================================
+  /*
+   * =======================================================
+   * RESPONSE
+   * =======================================================
+   */
 
-  page.on("response", async (response) => {
+  page.on("response", response => {
     if (streamUrl) {
       return;
     }
 
     const url = response.url();
 
-    if (!isChannelStream(url, channel)) {
-      return;
+    /*
+     * HANYA TERIMA URL M3U8
+     */
+
+    if (isChannelStream(url, channel)) {
+      streamUrl = url;
+
+      console.log("");
+      console.log("=================================");
+      console.log(`${channel.name} M3U8 DITEMUKAN`);
+      console.log("=================================");
+      console.log("Sumber: response");
+      console.log("");
+      console.log(streamUrl);
+      console.log("");
     }
-
-    streamUrl = url;
-
-    console.log("");
-    console.log("=================================");
-    console.log(`${channel.name} STREAM DITEMUKAN`);
-    console.log("=================================");
-    console.log("Sumber: response");
-    console.log("");
-    console.log(streamUrl);
-    console.log("");
   });
+
+  /*
+   * =======================================================
+   * BUKA HALAMAN
+   * =======================================================
+   */
 
   try {
     await page.goto(channel.url, {
@@ -133,11 +149,15 @@ async function findStream(channel) {
       timeout: 60000
     });
 
-    console.log(`${channel.name} halaman berhasil dibuka.`);
+    console.log(
+      `${channel.name} halaman berhasil dibuka.`
+    );
 
-    // =====================================================
-    // TUNGGU PLAYER
-    // =====================================================
+    /*
+     * =====================================================
+     * TUNGGU PLAYER
+     * =====================================================
+     */
 
     for (
       let second = 0;
@@ -151,12 +171,15 @@ async function findStream(channel) {
       );
     }
 
-    // =====================================================
-    // COBA PLAY SEMUA VIDEO
-    // =====================================================
+    /*
+     * =====================================================
+     * COBA PLAY SEMUA VIDEO
+     * =====================================================
+     */
 
     if (!streamUrl) {
-      const videos = await page.locator("video").count();
+      const videos =
+        await page.locator("video").count();
 
       console.log(
         `${channel.name} jumlah video element: ${videos}`
@@ -171,7 +194,7 @@ async function findStream(channel) {
           await page
             .locator("video")
             .nth(i)
-            .evaluate((video) => {
+            .evaluate(video => {
               video.muted = true;
 
               const promise = video.play();
@@ -184,6 +207,13 @@ async function findStream(channel) {
           console.log(
             `${channel.name} video ${i + 1} dicoba dijalankan.`
           );
+
+          /*
+           * Beri waktu request M3U8 muncul
+           */
+
+          await page.waitForTimeout(2000);
+
         } catch {
           console.log(
             `${channel.name} video ${i + 1} gagal dijalankan.`
@@ -192,9 +222,11 @@ async function findStream(channel) {
       }
     }
 
-    // =====================================================
-    // COBA TOMBOL PLAY JWPLAYER
-    // =====================================================
+    /*
+     * =====================================================
+     * COBA TOMBOL PLAY JWPLAYER
+     * =====================================================
+     */
 
     if (!streamUrl) {
       const selectors = [
@@ -211,14 +243,19 @@ async function findStream(channel) {
         }
 
         try {
-          const count = await page.locator(selector).count();
+          const count =
+            await page.locator(selector).count();
 
           if (count > 0) {
             console.log(
               `${channel.name} menemukan tombol: ${selector}`
             );
 
-            for (let i = 0; i < count; i++) {
+            for (
+              let i = 0;
+              i < count && !streamUrl;
+              i++
+            ) {
               try {
                 await page
                   .locator(selector)
@@ -228,28 +265,32 @@ async function findStream(channel) {
                     timeout: 3000
                   });
 
-                await page.waitForTimeout(1000);
+                console.log(
+                  `${channel.name} tombol play diklik.`
+                );
 
-                if (streamUrl) {
-                  break;
-                }
+                await page.waitForTimeout(2000);
+
               } catch {
                 // abaikan
               }
             }
           }
+
         } catch {
           // abaikan
         }
       }
     }
 
-    // =====================================================
-    // KHUSUS GTV
-    //
-    // GTV tidak mengeluarkan URL lewat video.src.
-    // Jadi kita fokus menunggu REQUEST/RESPONSE .m3u8.
-    // =====================================================
+    /*
+     * =====================================================
+     * KHUSUS GTV
+     * =====================================================
+     *
+     * GTV biasanya perlu waktu lebih lama untuk
+     * mengeluarkan request M3U8.
+     */
 
     if (!streamUrl && channel.name === "GTV") {
       console.log("");
@@ -273,14 +314,19 @@ async function findStream(channel) {
       }
     }
 
-    // =====================================================
-    // UNTUK RCTI / MNCTV
-    // =====================================================
+    /*
+     * =====================================================
+     * RCTI / MNCTV
+     * =====================================================
+     */
 
-    if (!streamUrl && channel.name !== "GTV") {
+    if (
+      !streamUrl &&
+      channel.name !== "GTV"
+    ) {
       console.log("");
       console.log(
-        `${channel.name} menunggu URL stream setelah Play...`
+        `${channel.name} menunggu URL M3U8 setelah Play...`
       );
 
       for (
@@ -298,112 +344,6 @@ async function findStream(channel) {
       }
     }
 
-    // =====================================================
-    // LAST CHANCE:
-    // PERIKSA SOURCE VIDEO
-    // =====================================================
-
-    if (!streamUrl) {
-      try {
-        const videoInfo = await page
-          .locator("video")
-          .evaluateAll((videos) =>
-            videos.map((video) => ({
-              src: video.src || "",
-              currentSrc: video.currentSrc || "",
-              readyState: video.readyState,
-              networkState: video.networkState
-            }))
-          );
-
-        console.log("");
-        console.log("=================================");
-        console.log(`PEMERIKSAAN VIDEO ${channel.name}`);
-        console.log("=================================");
-        console.log(JSON.stringify(videoInfo, null, 2));
-
-        for (const video of videoInfo) {
-          if (
-            video.currentSrc &&
-            isChannelStream(video.currentSrc, channel)
-          ) {
-            streamUrl = video.currentSrc;
-            break;
-          }
-
-          if (
-            video.src &&
-            isChannelStream(video.src, channel)
-          ) {
-            streamUrl = video.src;
-            break;
-          }
-        }
-      } catch (error) {
-        console.log(
-          `${channel.name} gagal membaca video: ${error.message}`
-        );
-      }
-    }
-
-    // =====================================================
-    // LAST CHANCE:
-    // CARI URL M3U8 DARI ATTRIBUTE / SCRIPT
-    // BUKAN SELURUH HTML
-    // =====================================================
-
-    if (!streamUrl) {
-      try {
-        const candidates = await page.evaluate((host) => {
-          const found = new Set();
-
-          const elements = document.querySelectorAll(
-            "script, source, video, audio, iframe"
-          );
-
-          for (const element of elements) {
-            for (const attr of element.attributes || []) {
-              const value = attr.value || "";
-
-              if (
-                value.includes(host) &&
-                value.toLowerCase().includes(".m3u8")
-              ) {
-                found.add(value);
-              }
-            }
-
-            const text = element.textContent || "";
-
-            if (
-              text.includes(host) &&
-              text.toLowerCase().includes(".m3u8")
-            ) {
-              found.add(text);
-            }
-          }
-
-          return Array.from(found);
-        }, channel.host);
-
-        for (const candidate of candidates) {
-          const extracted = extractM3U8FromText(
-            candidate,
-            channel
-          );
-
-          if (extracted) {
-            streamUrl = extracted;
-            break;
-          }
-        }
-      } catch (error) {
-        console.log(
-          `${channel.name} gagal membaca candidate: ${error.message}`
-        );
-      }
-    }
-
   } catch (error) {
     console.error(
       `${channel.name} gagal dibuka:`,
@@ -411,29 +351,35 @@ async function findStream(channel) {
     );
   }
 
-  // =====================================================
-  // CLOSE PAGE
-  // =====================================================
+  /*
+   * =======================================================
+   * TUTUP PAGE
+   * =======================================================
+   */
 
   await page.close();
 
   return streamUrl;
 }
 
-// =========================================================
-// PROSES SEMUA CHANNEL
-// =========================================================
+/*
+ * =========================================================
+ * PROSES SEMUA CHANNEL
+ * =========================================================
+ */
 
 for (const channel of channels) {
-  const streamUrl = await findStream(channel);
+  const streamUrl =
+    await findStream(channel);
 
   if (!streamUrl) {
     console.error("");
     console.error("=================================");
     console.error(
-      `${channel.name}: URL STREAM TIDAK DITEMUKAN`
+      `${channel.name}: M3U8 TIDAK DITEMUKAN`
     );
     console.error("=================================");
+
     continue;
   }
 
@@ -444,19 +390,23 @@ for (const channel of channels) {
   });
 }
 
-// =========================================================
-// CLOSE BROWSER
-// =========================================================
+/*
+ * =========================================================
+ * TUTUP BROWSER
+ * =========================================================
+ */
 
 await browser.close();
 
-// =========================================================
-// HASIL
-// =========================================================
+/*
+ * =========================================================
+ * HASIL
+ * =========================================================
+ */
 
 console.log("");
 console.log("=================================");
-console.log("SEMUA STREAM BERHASIL DITEMUKAN");
+console.log("HASIL DETEKSI M3U8");
 console.log("=================================");
 
 for (const result of results) {
@@ -465,16 +415,30 @@ for (const result of results) {
   console.log(result.url);
 }
 
-// =========================================================
-// SIMPAN
-// =========================================================
+/*
+ * =========================================================
+ * SIMPAN HASIL
+ * =========================================================
+ */
 
 console.log("");
 console.log("=================================");
-console.log("MENYIMPAN STREAM");
+console.log("MENYIMPAN M3U8");
 console.log("=================================");
 
 for (const result of results) {
+  /*
+   * Pastikan sekali lagi hanya M3U8
+   */
+
+  if (!isM3U8(result.url)) {
+    console.error(
+      `${result.name}: URL bukan M3U8, tidak disimpan.`
+    );
+
+    continue;
+  }
+
   fs.writeFileSync(
     result.outputFile,
     result.url.trim() + "\n",
@@ -486,13 +450,15 @@ for (const result of results) {
   );
 }
 
-// =========================================================
-// SELESAI
-// =========================================================
+/*
+ * =========================================================
+ * SELESAI
+ * =========================================================
+ */
 
 console.log("");
 console.log("=================================");
-console.log("SEMUA FILE BERHASIL DIPERBARUI");
+console.log("SEMUA FILE M3U8 BERHASIL DIPERBARUI");
 console.log("=================================");
 
 for (const result of results) {
