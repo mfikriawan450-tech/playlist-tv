@@ -1,1 +1,1 @@
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787853814~hmac=a2f5d417eeb2e90ddecb591159edd73ced03998aa8ee970546fe6cf624a6f07b
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787909320~hmac=bef778dc998293209f4c9f82bd2619a21cbd956248bd5994e349cd96f129b468
