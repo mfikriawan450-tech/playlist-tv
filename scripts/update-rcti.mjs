@@ -6,38 +6,134 @@ const channels = [
     name: "RCTI",
     url: "https://www.rctiplus.com/tv/rcti",
     outputFile: "stream-rcti.txt",
-
-    match: (url) =>
-      url.includes("rcti-linier.rctiplus.id") &&
-      url.includes(".m3u8")
+    hostname: "rcti-linier.rctiplus.id"
   },
-
   {
     name: "MNCTV",
     url: "https://www.rctiplus.com/tv/mnctv",
     outputFile: "stream-mnctv.txt",
-
-    match: (url) =>
-      url.includes("mnctv-linier.rctiplus.id") &&
-      url.includes(".m3u8")
+    hostname: "mnctv-linier.rctiplus.id"
   },
-
   {
     name: "GTV",
     url: "https://www.rctiplus.com/tv/gtv",
     outputFile: "stream-gtv.txt",
-
-    match: (url) =>
-      url.includes("gtv-linier.rctiplus.id") &&
-      url.includes(".m3u8")
+    hostname: "gtv-linier.rctiplus.id"
   }
 ];
+
+// ==========================================================
+// CEK APAKAH URL BENAR-BENAR URL STREAM
+// ==========================================================
+
+function isStreamUrl(url, channel) {
+  try {
+    const parsed = new URL(url);
+
+    return (
+      parsed.hostname === channel.hostname &&
+      parsed.pathname.endsWith(".m3u8")
+    );
+  } catch {
+    return false;
+  }
+}
+
+// ==========================================================
+// AMBIL URL STREAM DARI URL JWPLAYER PING
+// ==========================================================
+
+function extractFromJWPlayer(url, channel) {
+  try {
+    const parsed = new URL(url);
+
+    // Hanya proses domain JWPlayer
+    if (!parsed.hostname.includes("jwpltx.com")) {
+      return null;
+    }
+
+    // Parameter "mu" berisi URL media
+    const mediaUrl = parsed.searchParams.get("mu");
+
+    if (!mediaUrl) {
+      return null;
+    }
+
+    if (isStreamUrl(mediaUrl, channel)) {
+      return mediaUrl;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ==========================================================
+// AMBIL URL STREAM DARI URL YANG TER-ENCODE
+// ==========================================================
+
+function extractEncodedStream(url, channel) {
+  try {
+    if (!url.includes(channel.hostname)) {
+      return null;
+    }
+
+    // Decode URL kalau masih encoded
+    const decoded = decodeURIComponent(url);
+
+    // Cari posisi hostname
+    const index = decoded.indexOf(
+      `https://${channel.hostname}/`
+    );
+
+    if (index === -1) {
+      return null;
+    }
+
+    let candidate = decoded.substring(index);
+
+    // Hentikan kalau ada parameter tambahan
+    const possibleEnds = [
+      "&",
+      "\"",
+      "'",
+      " ",
+      "<",
+      ">"
+    ];
+
+    for (const endChar of possibleEnds) {
+      const position = candidate.indexOf(endChar);
+
+      if (position !== -1) {
+        candidate = candidate.substring(0, position);
+      }
+    }
+
+    if (isStreamUrl(candidate, channel)) {
+      return candidate;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ==========================================================
+// BROWSER
+// ==========================================================
 
 const browser = await chromium.launch({
   headless: true
 });
 
 const results = [];
+
+// ==========================================================
+// PROSES CHANNEL
+// ==========================================================
 
 for (const channel of channels) {
   console.log("");
@@ -52,116 +148,188 @@ for (const channel of channels) {
     },
 
     userAgent:
-      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-      "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+      "Mozilla/5.0 (X11; Linux x86_64) " +
+      "AppleWebKit/537.36 " +
+      "(KHTML, like Gecko) " +
+      "Chrome/151.0.0.0 Safari/537.36"
   });
 
   const page = await context.newPage();
 
   let streamUrl = null;
 
-  // =========================================================
-  // FUNGSI UNTUK MENYIMPAN URL
-  // =========================================================
+  // ========================================================
+  // FUNGSI PUSAT UNTUK MEMERIKSA URL
+  // ========================================================
 
-  const checkUrl = (url, source = "unknown") => {
-    if (!url) return;
+  const checkUrl = (url, source) => {
+    if (!url || streamUrl) {
+      return;
+    }
 
-    if (!streamUrl && channel.match(url)) {
+    // ------------------------------------------------------
+    // 1. URL STREAM LANGSUNG
+    // ------------------------------------------------------
+
+    if (isStreamUrl(url, channel)) {
       streamUrl = url;
 
       console.log("");
-      console.log(`=================================`);
+      console.log("=================================");
       console.log(`${channel.name} STREAM DITEMUKAN`);
       console.log(`Sumber: ${source}`);
-      console.log(`=================================`);
+      console.log("=================================");
+      console.log(streamUrl);
+      console.log("");
+
+      return;
+    }
+
+    // ------------------------------------------------------
+    // 2. URL DARI JWPLAYER ping.gif -> parameter mu
+    // ------------------------------------------------------
+
+    const jwStream = extractFromJWPlayer(url, channel);
+
+    if (jwStream) {
+      streamUrl = jwStream;
+
+      console.log("");
+      console.log("=================================");
+      console.log(`${channel.name} STREAM DITEMUKAN`);
+      console.log(`Sumber: ${source} -> JWPlayer mu`);
+      console.log("=================================");
+      console.log(streamUrl);
+      console.log("");
+
+      return;
+    }
+
+    // ------------------------------------------------------
+    // 3. URL STREAM YANG MASIH TER-ENCODE
+    // ------------------------------------------------------
+
+    const encodedStream = extractEncodedStream(
+      url,
+      channel
+    );
+
+    if (encodedStream) {
+      streamUrl = encodedStream;
+
+      console.log("");
+      console.log("=================================");
+      console.log(`${channel.name} STREAM DITEMUKAN`);
+      console.log(`Sumber: ${source} -> encoded`);
+      console.log("=================================");
       console.log(streamUrl);
       console.log("");
     }
   };
 
-  // =========================================================
+  // ========================================================
   // REQUEST
-  // =========================================================
+  // ========================================================
 
   page.on("request", (request) => {
-    checkUrl(request.url(), "request");
+    checkUrl(
+      request.url(),
+      "request"
+    );
   });
 
-  // =========================================================
+  // ========================================================
   // RESPONSE
-  // =========================================================
+  // ========================================================
 
   page.on("response", (response) => {
-    checkUrl(response.url(), "response");
+    checkUrl(
+      response.url(),
+      "response"
+    );
   });
 
-  // =========================================================
+  // ========================================================
   // REQUEST FINISHED
-  // =========================================================
+  // ========================================================
 
   page.on("requestfinished", (request) => {
-    checkUrl(request.url(), "requestfinished");
+    checkUrl(
+      request.url(),
+      "requestfinished"
+    );
   });
 
-  // =========================================================
+  // ========================================================
   // REQUEST FAILED
-  // =========================================================
+  // ========================================================
 
   page.on("requestfailed", (request) => {
     const url = request.url();
 
     if (
-      url.includes("linier.rctiplus.id") &&
+      url.includes(channel.hostname) &&
       url.includes(".m3u8")
     ) {
       console.log("");
-      console.log(`${channel.name} REQUEST STREAM GAGAL:`);
+      console.log(
+        `${channel.name} REQUEST STREAM GAGAL`
+      );
       console.log(url);
-      console.log("Alasan:", request.failure()?.errorText);
+      console.log(
+        "Alasan:",
+        request.failure()?.errorText
+      );
       console.log("");
     }
   });
 
-  try {
-    // =======================================================
-    // BUKA HALAMAN
-    // =======================================================
+  // ========================================================
+  // BUKA HALAMAN
+  // ========================================================
 
+  try {
     await page.goto(channel.url, {
       waitUntil: "domcontentloaded",
       timeout: 60000
     });
 
-    console.log(`${channel.name} halaman berhasil dibuka.`);
+    console.log(
+      `${channel.name} halaman berhasil dibuka.`
+    );
 
-    // =======================================================
-    // TUNGGU HALAMAN SELESAI LOAD
-    // =======================================================
-
+    // Beri waktu player/Javascript bekerja
     await page.waitForTimeout(5000);
 
-    // =======================================================
-    // CEK VIDEO ELEMENT
-    // =======================================================
+    // ======================================================
+    // VIDEO ELEMENT
+    // ======================================================
 
-    const videoCount = await page.locator("video").count();
+    const videoCount =
+      await page.locator("video").count();
 
     console.log(
       `${channel.name} jumlah video element: ${videoCount}`
     );
 
+    // ======================================================
+    // JALANKAN VIDEO
+    // ======================================================
+
     for (let i = 0; i < videoCount; i++) {
       try {
-        await page.locator("video").nth(i).evaluate((video) => {
-          video.muted = true;
+        await page
+          .locator("video")
+          .nth(i)
+          .evaluate((video) => {
+            video.muted = true;
 
-          const promise = video.play();
+            const promise = video.play();
 
-          if (promise) {
-            promise.catch(() => {});
-          }
-        });
+            if (promise) {
+              promise.catch(() => {});
+            }
+          });
 
         console.log(
           `${channel.name} video ${i + 1} dicoba dijalankan.`
@@ -173,9 +341,9 @@ for (const channel of channels) {
       }
     }
 
-    // =======================================================
-    // CARI TOMBOL PLAY
-    // =======================================================
+    // ======================================================
+    // TOMBOL PLAY
+    // ======================================================
 
     const playSelectors = [
       '[aria-label*="Play"]',
@@ -187,7 +355,8 @@ for (const channel of channels) {
 
     for (const selector of playSelectors) {
       try {
-        const count = await page.locator(selector).count();
+        const count =
+          await page.locator(selector).count();
 
         if (count > 0) {
           console.log(
@@ -196,9 +365,12 @@ for (const channel of channels) {
 
           for (let i = 0; i < count; i++) {
             try {
-              await page.locator(selector).nth(i).click({
-                timeout: 3000
-              });
+              await page
+                .locator(selector)
+                .nth(i)
+                .click({
+                  timeout: 3000
+                });
 
               await page.waitForTimeout(2000);
             } catch {
@@ -211,15 +383,19 @@ for (const channel of channels) {
       }
     }
 
-    // =======================================================
+    // ======================================================
     // TUNGGU STREAM
-    // =======================================================
+    // ======================================================
 
     console.log(
       `${channel.name} menunggu URL stream...`
     );
 
-    for (let i = 0; i < 60 && !streamUrl; i++) {
+    for (
+      let i = 0;
+      i < 60 && !streamUrl;
+      i++
+    ) {
       await page.waitForTimeout(1000);
 
       if (i % 10 === 0) {
@@ -229,71 +405,115 @@ for (const channel of channels) {
       }
     }
 
-    // =======================================================
-    // CEK PERFORMANCE RESOURCE
-    // =======================================================
+    // ======================================================
+    // PERFORMANCE RESOURCE
+    // ======================================================
 
     if (!streamUrl) {
       console.log("");
       console.log("=================================");
-      console.log(`PEMERIKSAAN RESOURCE ${channel.name}`);
+      console.log(
+        `PEMERIKSAAN RESOURCE ${channel.name}`
+      );
       console.log("=================================");
 
-      const resources = await page.evaluate(() => {
-        return performance
-          .getEntriesByType("resource")
-          .map((entry) => entry.name);
-      });
+      const resources =
+        await page.evaluate(() => {
+          return performance
+            .getEntriesByType("resource")
+            .map(
+              (entry) => entry.name
+            );
+        });
 
       for (const resource of resources) {
-        if (
-          resource.includes("linier.rctiplus.id") &&
-          resource.includes(".m3u8")
-        ) {
-          console.log("Resource ditemukan:");
-          console.log(resource);
+        checkUrl(
+          resource,
+          "performance"
+        );
 
-          checkUrl(resource, "performance");
-
-          if (streamUrl) {
-            break;
-          }
+        if (streamUrl) {
+          break;
         }
       }
+    }
 
-      if (!streamUrl) {
+    // ======================================================
+    // CARI STREAM DI HTML
+    // ======================================================
+
+    if (!streamUrl) {
+      console.log("");
+      console.log("=================================");
+      console.log(
+        `PEMERIKSAAN HTML ${channel.name}`
+      );
+      console.log("=================================");
+
+      const html =
+        await page.content();
+
+      const decodedHtml =
+        decodeURIComponent(html);
+
+      const hostnameIndex =
+        decodedHtml.indexOf(
+          channel.hostname
+        );
+
+      if (hostnameIndex !== -1) {
+        const start =
+          Math.max(
+            0,
+            hostnameIndex - 300
+          );
+
+        const end =
+          Math.min(
+            decodedHtml.length,
+            hostnameIndex + 1000
+          );
+
         console.log(
-          `Tidak ada resource ${channel.name}-linier yang terdeteksi.`
+          decodedHtml.substring(
+            start,
+            end
+          )
+        );
+      } else {
+        console.log(
+          `${channel.hostname} tidak ditemukan di HTML.`
         );
       }
     }
 
-    // =======================================================
-    // CEK SEMUA REQUEST STREAM YANG TERLIHAT
-    // =======================================================
+    // ======================================================
+    // DEBUG RESOURCE RCTIPLUS
+    // ======================================================
 
     if (!streamUrl) {
       console.log("");
       console.log("=================================");
-      console.log(`DEBUG URL ${channel.name}`);
+      console.log(
+        `DEBUG RESOURCE ${channel.name}`
+      );
       console.log("=================================");
 
-      const resources = await page.evaluate(() => {
-        return performance
-          .getEntriesByType("resource")
-          .map((entry) => entry.name)
-          .filter((url) =>
-            url.includes("rctiplus")
-          );
-      });
+      const resources =
+        await page.evaluate(() => {
+          return performance
+            .getEntriesByType("resource")
+            .map(
+              (entry) => entry.name
+            )
+            .filter(
+              (url) =>
+                url.includes("rctiplus")
+            );
+        });
 
       for (const resource of resources) {
-        if (
-          resource.includes(".m3u8") ||
-          resource.includes("linier")
-        ) {
-          console.log(resource);
-        }
+        console.log(resource);
       }
     }
   } catch (error) {
@@ -303,12 +523,12 @@ for (const channel of channels) {
     );
   }
 
-  // =========================================================
-  // HASIL
-  // =========================================================
-
   await page.close();
   await context.close();
+
+  // ========================================================
+  // HASIL CHANNEL
+  // ========================================================
 
   if (!streamUrl) {
     console.error("");
@@ -328,15 +548,15 @@ for (const channel of channels) {
   });
 }
 
-// ===========================================================
+// ==========================================================
 // TUTUP BROWSER
-// ===========================================================
+// ==========================================================
 
 await browser.close();
 
-// ===========================================================
-// TAMPILKAN HASIL
-// ===========================================================
+// ==========================================================
+// HASIL SEMUA
+// ==========================================================
 
 console.log("");
 console.log("=================================");
@@ -349,9 +569,9 @@ for (const result of results) {
   console.log(result.url);
 }
 
-// ===========================================================
+// ==========================================================
 // SIMPAN FILE
-// ===========================================================
+// ==========================================================
 
 for (const result of results) {
   fs.writeFileSync(
@@ -360,23 +580,26 @@ for (const result of results) {
     "utf8"
   );
 
-  console.log("");
   console.log(
     `${result.name} URL berhasil disimpan ke ${result.outputFile}.`
   );
 }
 
-// ===========================================================
+// ==========================================================
 // SELESAI
-// ===========================================================
+// ==========================================================
 
 console.log("");
 console.log("=================================");
-console.log("SEMUA FILE STREAM BERHASIL DIPERBARUI");
+console.log(
+  "SEMUA FILE STREAM BERHASIL DIPERBARUI"
+);
 console.log("=================================");
 
 for (const result of results) {
   console.log("");
-  console.log(`${result.outputFile}:`);
+  console.log(
+    `${result.outputFile}:`
+  );
   console.log(result.url);
 }
