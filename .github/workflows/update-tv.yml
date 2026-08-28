@@ -62,24 +62,28 @@ jobs:
           node scripts/update-trans7.mjs
 
       # ==========================================
-      # FORMAT STREAM TXT
+      # UPDATE os4.m3u
       #
-      # Ketiga file hanya berisi URL ASLI
-      # tanpa header / referer / metadata.
+      # RCTI/MNCTV/GTV:
+      # langsung memakai URL ASLI terbaru
+      #
+      # Tidak menggunakan Worker
       # ==========================================
 
-      - name: Format stream TXT
+      - name: Build os4.m3u
         run: |
           python3 <<'PY'
           from pathlib import Path
 
-          files = {
-              "stream-rcti.txt": "RCTI",
-              "stream-mnctv.txt": "MNCTV",
-              "stream-gtv.txt": "GTV",
-          }
+          REFERRER = "https://www.rctiplus.com/"
 
-          for filename, channel in files.items():
+          USER_AGENT = (
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+              "AppleWebKit/537.36 (KHTML, like Gecko) "
+              "Chrome/151.0.0.0 Safari/537.36"
+          )
+
+          def read_url(filename, channel):
               path = Path(filename)
 
               if not path.exists():
@@ -87,118 +91,165 @@ jobs:
                       f"{filename} tidak ditemukan."
                   )
 
-              lines = path.read_text(
+              for line in path.read_text(
                   encoding="utf-8"
-              ).splitlines()
+              ).splitlines():
 
-              url = None
-
-              for line in lines:
                   line = line.strip()
 
                   if (
                       line.startswith("http://")
                       or line.startswith("https://")
                   ):
-                      url = line
+                      return line
 
-              if not url:
-                  raise RuntimeError(
-                      f"URL asli {channel} tidak ditemukan "
-                      f"di {filename}."
-                  )
-
-              # Hanya URL asli
-              path.write_text(
-                  url + "\n",
-                  encoding="utf-8"
+              raise RuntimeError(
+                  f"URL {channel} tidak ditemukan di {filename}."
               )
 
-              print("=================================")
-              print(channel)
-              print("=================================")
-              print("URL:")
-              print(url)
-              print(f"File: {filename}")
-              print()
+          # ==========================================
+          # AMBIL URL ASLI HASIL update-rcti.mjs
+          # ==========================================
 
-          print("=================================")
-          print("SEMUA STREAM TXT BERISI URL ASLI")
-          print("=================================")
-          PY
+          rcti_url = read_url(
+              "stream-rcti.txt",
+              "RCTI"
+          )
 
-      # ==========================================
-      # PASTIKAN os4.m3u MENGGUNAKAN WORKER
-      # + HEADER / REFERER TETAP DI os4.m3u
-      # ==========================================
+          mnctv_url = read_url(
+              "stream-mnctv.txt",
+              "MNCTV"
+          )
 
-      - name: Update os4.m3u
-        run: |
-          cat > os4.m3u <<'EOF'
-          #EXTM3U
+          gtv_url = read_url(
+              "stream-gtv.txt",
+              "GTV"
+          )
+
+          # ==========================================
+          # BACA os4.m3u YANG SUDAH DIUBAH update-trans7
+          # ==========================================
+
+          trans7_url = None
+
+          os4_old = Path("os4.m3u")
+
+          if os4_old.exists():
+
+              lines = os4_old.read_text(
+                  encoding="utf-8"
+              ).splitlines()
+
+              current = None
+
+              for line in lines:
+
+                  stripped = line.strip()
+
+                  if stripped.startswith(
+                      "#EXTINF:-1,Trans7"
+                  ):
+                      current = "Trans7"
+                      continue
+
+                  if current == "Trans7":
+
+                      if (
+                          stripped.startswith("http://")
+                          or stripped.startswith("https://")
+                      ):
+                          trans7_url = stripped
+                          break
+
+          if not trans7_url:
+              raise RuntimeError(
+                  "URL Trans7 tidak ditemukan di os4.m3u."
+              )
+
+          # ==========================================
+          # BANGUN os4.m3u FINAL
+          # ==========================================
+
+          final_playlist = f"""#EXTM3U
 
           #EXTINF:-1,Trans TV
           https://livestream.transtv.co.id/stream/live/ttv.m3u8
 
           #EXTINF:-1,Trans7
-          https://iptv-gateway.mfikriawan450.workers.dev/trans7
+          {trans7_url}
 
           #EXTINF:-1,RCTI
-          #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
-          #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-          https://iptv-gateway.mfikriawan450.workers.dev/rcti
+          #EXTVLCOPT:http-referrer={REFERRER}
+          #EXTVLCOPT:http-user-agent={USER_AGENT}
+          {rcti_url}
 
           #EXTINF:-1,MNCTV
-          #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
-          #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-          https://iptv-gateway.mfikriawan450.workers.dev/mnctv
+          #EXTVLCOPT:http-referrer={REFERRER}
+          #EXTVLCOPT:http-user-agent={USER_AGENT}
+          {mnctv_url}
 
           #EXTINF:-1,GTV
-          #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
-          #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-          https://iptv-gateway.mfikriawan450.workers.dev/gtv
+          #EXTVLCOPT:http-referrer={REFERRER}
+          #EXTVLCOPT:http-user-agent={USER_AGENT}
+          {gtv_url}
 
           #EXTINF:-1,TVRI Nasional
           https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
 
           #EXTINF:-1,Metro TV
           https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
-          EOF
+          """
+
+          # Hilangkan indentasi awal dari f-string
+          final_playlist = "\n".join(
+              line.strip()
+              for line in final_playlist.strip().splitlines()
+          ) + "\n"
+
+          Path("os4.m3u").write_text(
+              final_playlist,
+              encoding="utf-8"
+          )
+
+          print("=================================")
+          print("os4.m3u BERHASIL DIBUAT")
+          print("=================================")
+          PY
 
       # ==========================================
       # SHOW RESULT
       # ==========================================
 
-      - name: Show updated files
+      - name: Show final playlist
         run: |
           echo "================================="
-          echo "ISI os4.m3u"
+          echo "ISI FINAL os4.m3u"
           echo "================================="
           cat os4.m3u
 
           echo ""
           echo "================================="
-          echo "ISI stream-rcti.txt"
+          echo "URL ASLI RCTI"
           echo "================================="
           cat stream-rcti.txt
 
           echo ""
           echo "================================="
-          echo "ISI stream-mnctv.txt"
+          echo "URL ASLI MNCTV"
           echo "================================="
           cat stream-mnctv.txt
 
           echo ""
           echo "================================="
-          echo "ISI stream-gtv.txt"
+          echo "URL ASLI GTV"
           echo "================================="
           cat stream-gtv.txt
 
           echo ""
           echo "================================="
-          echo "ISI stream-trans7.txt"
+          echo "URL TRANS7"
           echo "================================="
-          cat stream-trans7.txt
+          grep -A1 "^#EXTINF:-1,Trans7" os4.m3u
 
       # ==========================================
       # COMMIT & PUSH
@@ -221,10 +272,6 @@ jobs:
           echo "================================="
 
           git add os4.m3u
-          git add stream-rcti.txt
-          git add stream-mnctv.txt
-          git add stream-gtv.txt
-          git add stream-trans7.txt
 
           echo ""
           echo "================================="
