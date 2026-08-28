@@ -9,17 +9,17 @@ https://iptv-gateway.mfikriawan450.workers.dev/trans7
 #EXTINF:-1,RCTI
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787945137~hmac=453c222c68d9c1997f3d5ce7175b4f5a7b7cc8d784cbff9839b6dffd351d09b7
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787947847~hmac=f46cda2c7cf643577e0b670c0d709aa5d46ab65281590ebced5f1d41b3f4cb6f
 
 #EXTINF:-1,MNCTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787945141~hmac=f9d15627ebbc5dff599ce2e4b0fa14bd589ea3edd926a7dbb2d0dd312ac40f55
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787947851~hmac=27ece9ab0a77a8b253b73df770f3660859e555134a1dce465b0b34f0a9473265
 
 #EXTINF:-1,GTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787952344~hmac=9c8009b34a766b34942f2e1c2aa20c25093dd8e7b9c1b64a1b8c1c7a81f95352
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787955054~hmac=1703e75d6c08395d0b641a32d3582e81dfec239c4aa9b91e24ca8de512a8d9dd
 
 #EXTINF:-1,TVRI Nasional
 https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
