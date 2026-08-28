@@ -4,6 +4,11 @@ import fs from "fs";
 const PAGE_URL = "https://sevenhub.id/live";
 const PLAYLIST_FILE = "os4.m3u";
 
+const USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+  "AppleWebKit/537.36 (KHTML, like Gecko) " +
+  "Chrome/151.0.0.0 Safari/537.36";
+
 console.log("=================================");
 console.log("MEMBUKA SEVENHUB");
 console.log("=================================");
@@ -18,10 +23,7 @@ const browser = await chromium.launch({
 });
 
 const context = await browser.newContext({
-  userAgent:
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-    "AppleWebKit/537.36 (KHTML, like Gecko) " +
-    "Chrome/151.0.0.0 Safari/537.36",
+  userAgent: USER_AGENT,
   viewport: {
     width: 1280,
     height: 720
@@ -185,21 +187,127 @@ if (!originalUrl) {
 }
 
 console.log("");
-console.log("URL ASLI:");
+console.log("URL ASLI BARU:");
 console.log(originalUrl);
 
 // ==========================================
-// COBA UBAH 240 → 480
+// NORMALISASI UNTUK COMPARISON
+//
+// live-240 / live-480 / live-720
+// dianggap resolusi yang sama untuk
+// keperluan membandingkan identitas stream.
+// ==========================================
+
+function normalizeForCompare(url) {
+  if (!url) {
+    return null;
+  }
+
+  return url
+    .replace("/live-240.m3u8", "/live-RESOLUTION.m3u8")
+    .replace("/live-480.m3u8", "/live-RESOLUTION.m3u8")
+    .replace("/live-720.m3u8", "/live-RESOLUTION.m3u8");
+}
+
+// ==========================================
+// AMBIL URL TRANS7 LAMA DARI os4.m3u
+// ==========================================
+
+if (!fs.existsSync(PLAYLIST_FILE)) {
+  console.error(`${PLAYLIST_FILE} tidak ditemukan.`);
+  process.exit(1);
+}
+
+let playlist = fs.readFileSync(
+  PLAYLIST_FILE,
+  "utf8"
+);
+
+const blockRegex =
+  /(#EXTINF:-1,Trans7\r?\n)(https?:\/\/[^\r\n]+)/;
+
+const match = playlist.match(blockRegex);
+
+if (!match) {
+  console.error(
+    "Blok Trans7 tidak ditemukan di os4.m3u."
+  );
+
+  process.exit(1);
+}
+
+const storedUrl = match[2].trim();
+
+console.log("");
+console.log("=================================");
+console.log("URL TRANS7 LAMA");
+console.log("=================================");
+console.log(storedUrl);
+
+// ==========================================
+// COMPARE URL ASLI
+// ==========================================
+
+const oldCompareUrl =
+  normalizeForCompare(storedUrl);
+
+const newCompareUrl =
+  normalizeForCompare(originalUrl);
+
+console.log("");
+console.log("=================================");
+console.log("HASIL COMPARISON");
+console.log("=================================");
+
+console.log("URL LAMA:");
+console.log(oldCompareUrl);
+
+console.log("");
+console.log("URL ASLI BARU:");
+console.log(newCompareUrl);
+
+if (oldCompareUrl === newCompareUrl) {
+  console.log("");
+  console.log("STATUS: URL ASLI TIDAK BERUBAH");
+  console.log("TIDAK ADA UPDATE TRANS7.");
+  console.log("");
+
+  process.exit(0);
+}
+
+console.log("");
+console.log("STATUS: URL ASLI BERUBAH");
+console.log("TRANS7 AKAN DIPERBARUI.");
+
+// ==========================================
+// DEFAULT:
+// GUNAKAN URL ASLI
 // ==========================================
 
 let finalUrl = originalUrl;
 
-if (originalUrl.includes("live-240.m3u8")) {
+// ==========================================
+// COBA 480P
+// ==========================================
 
-  const url480 = originalUrl.replace(
-    "live-240.m3u8",
-    "live-480.m3u8"
-  );
+if (
+  originalUrl.includes("live-240.m3u8") ||
+  originalUrl.includes("live-720.m3u8") ||
+  originalUrl.includes("live-480.m3u8")
+) {
+  const url480 = originalUrl
+    .replace(
+      "/live-240.m3u8",
+      "/live-480.m3u8"
+    )
+    .replace(
+      "/live-720.m3u8",
+      "/live-480.m3u8"
+    )
+    .replace(
+      "/live-480.m3u8",
+      "/live-480.m3u8"
+    );
 
   console.log("");
   console.log("=================================");
@@ -211,11 +319,7 @@ if (originalUrl.includes("live-240.m3u8")) {
     const response480 = await fetch(url480, {
       method: "GET",
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-          "AppleWebKit/537.36 (KHTML, like Gecko) " +
-          "Chrome/151.0.0.0 Safari/537.36",
-
+        "User-Agent": USER_AGENT,
         "Referer": "https://sevenhub.id/"
       },
       redirect: "follow"
@@ -225,23 +329,19 @@ if (originalUrl.includes("live-240.m3u8")) {
     console.log("STATUS 480P:", response480.status);
 
     if (response480.status === 200) {
-
       finalUrl = url480;
 
       console.log("");
       console.log("=================================");
       console.log("480P TERSEDIA!");
       console.log("=================================");
-      console.log("Menggunakan URL 480P.");
-
+      console.log("URL 480P AKAN DIGUNAKAN.");
     } else {
-
       console.log("");
       console.log("=================================");
       console.log("480P TIDAK TERSEDIA");
       console.log("=================================");
       console.log("Kembali menggunakan URL asli.");
-
     }
 
   } catch (error) {
@@ -252,44 +352,21 @@ if (originalUrl.includes("live-240.m3u8")) {
 
     console.log("");
     console.log("Menggunakan URL asli.");
-
   }
 
 } else {
 
   console.log("");
   console.log(
-    "URL tidak menggunakan pola live-240.m3u8."
+    "URL tidak menggunakan pola live-240/480/720.m3u8."
   );
 
-  console.log(
-    "URL asli akan digunakan."
-  );
+  console.log("URL asli akan digunakan.");
 }
 
 // ==========================================
 // UPDATE LANGSUNG os4.m3u
 // ==========================================
-
-if (!fs.existsSync(PLAYLIST_FILE)) {
-  console.error(`File ${PLAYLIST_FILE} tidak ditemukan.`);
-  process.exit(1);
-}
-
-let playlist = fs.readFileSync(
-  PLAYLIST_FILE,
-  "utf8"
-);
-
-const blockRegex = /(#EXTINF:-1,Trans7\r?\n)(https?:\/\/[^\r\n]+)/;
-
-if (!blockRegex.test(playlist)) {
-  console.error(
-    "Blok Trans7 tidak ditemukan di os4.m3u."
-  );
-
-  process.exit(1);
-}
 
 playlist = playlist.replace(
   blockRegex,
@@ -308,11 +385,15 @@ fs.writeFileSync(
 
 console.log("");
 console.log("=================================");
-console.log("STREAM TRANS7 BERHASIL DIPERBARUI");
+console.log("TRANS7 BERHASIL DIPERBARUI");
 console.log("=================================");
 
 console.log("");
-console.log("URL FINAL:");
+console.log("URL ASLI:");
+console.log(originalUrl);
+
+console.log("");
+console.log("URL YANG DISIMPAN:");
 console.log(finalUrl);
 
 console.log("");
