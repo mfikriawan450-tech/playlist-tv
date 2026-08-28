@@ -82,9 +82,10 @@ jobs:
           REFERRER: "https://www.rctiplus.com/"
           USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
         run: |
-          RCTI_URL=$(cat stream-rcti.txt)
-          MNCTV_URL=$(cat stream-mnctv.txt)
-          GTV_URL=$(cat stream-gtv.txt)
+          RCTI_URL="$(cat stream-rcti.txt)"
+          MNCTV_URL="$(cat stream-mnctv.txt)"
+          GTV_URL="$(cat stream-gtv.txt)"
+          TRANS7_URL="$(cat stream-trans7.txt)"
 
           if [ -z "$RCTI_URL" ]; then
             echo "ERROR: RCTI URL kosong."
@@ -101,59 +102,46 @@ jobs:
             exit 1
           fi
 
-          if grep -q "^#EXTINF:-1,Trans7$" os4.m3u; then
-            TRANS7_URL=$(awk '
-              found {
-                if ($0 ~ /^https?:\/\//) {
-                  print $0
-                  exit
-                }
-              }
-              /^#EXTINF:-1,Trans7$/ {
-                found=1
-              }
-            ' os4.m3u)
-          else
-            echo "ERROR: Blok Trans7 tidak ditemukan."
-            exit 1
-          fi
-
           if [ -z "$TRANS7_URL" ]; then
             echo "ERROR: Trans7 URL kosong."
             exit 1
           fi
 
-          cat > os4.m3u <<EOF
-#EXTM3U
+          printf '%s\n' \
+            '#EXTM3U' \
+            '' \
+            '#EXTINF:-1,Trans TV' \
+            'https://livestream.transtv.co.id/stream/live/ttv.m3u8' \
+            '' \
+            '#EXTINF:-1,Trans7' \
+            "$TRANS7_URL" \
+            '' \
+            '#EXTINF:-1,RCTI' \
+            "#EXTVLCOPT:http-referrer=$REFERRER" \
+            "#EXTVLCOPT:http-user-agent=$USER_AGENT" \
+            "$RCTI_URL" \
+            '' \
+            '#EXTINF:-1,MNCTV' \
+            "#EXTVLCOPT:http-referrer=$REFERRER" \
+            "#EXTVLCOPT:http-user-agent=$USER_AGENT" \
+            "$MNCTV_URL" \
+            '' \
+            '#EXTINF:-1,GTV' \
+            "#EXTVLCOPT:http-referrer=$REFERRER" \
+            "#EXTVLCOPT:http-user-agent=$USER_AGENT" \
+            "$GTV_URL" \
+            '' \
+            '#EXTINF:-1,TVRI Nasional' \
+            'https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8' \
+            '' \
+            '#EXTINF:-1,Metro TV' \
+            'https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8' \
+            > os4.m3u
 
-#EXTINF:-1,Trans TV
-https://livestream.transtv.co.id/stream/live/ttv.m3u8
-
-#EXTINF:-1,Trans7
-$TRANS7_URL
-
-#EXTINF:-1,RCTI
-#EXTVLCOPT:http-referrer=$REFERRER
-#EXTVLCOPT:http-user-agent=$USER_AGENT
-$RCTI_URL
-
-#EXTINF:-1,MNCTV
-#EXTVLCOPT:http-referrer=$REFERRER
-#EXTVLCOPT:http-user-agent=$USER_AGENT
-$MNCTV_URL
-
-#EXTINF:-1,GTV
-#EXTVLCOPT:http-referrer=$REFERRER
-#EXTVLCOPT:http-user-agent=$USER_AGENT
-$GTV_URL
-
-#EXTINF:-1,TVRI Nasional
-https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
-
-#EXTINF:-1,Metro TV
-https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
-EOF
-
+          echo "================================="
+          echo "os4.m3u FINAL"
+          echo "================================="
+          cat os4.m3u
       # ==========================================
       # CEK PERUBAHAN PER CHANNEL
       # ==========================================
