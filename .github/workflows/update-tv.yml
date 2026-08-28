@@ -44,6 +44,14 @@ jobs:
           npx playwright install chromium
 
       # ==========================================
+      # SIMPAN os4.m3u SEBELUM UPDATE
+      # ==========================================
+
+      - name: Backup playlist lama
+        run: |
+          cp os4.m3u os4.m3u.before
+
+      # ==========================================
       # UPDATE RCTI / MNCTV / GTV
       # ==========================================
 
@@ -60,7 +68,13 @@ jobs:
           node scripts/update-trans7.mjs
 
       # ==========================================
-      # BUILD FINAL os4.m3u
+      # BUILD os4.m3u
+      #
+      # RCTI / MNCTV / GTV:
+      # URL diambil dari file hasil update-rcti.mjs
+      #
+      # Trans7:
+      # sudah di-update langsung oleh update-trans7.mjs
       # ==========================================
 
       - name: Build os4.m3u
@@ -72,139 +86,224 @@ jobs:
           MNCTV_URL=$(cat stream-mnctv.txt)
           GTV_URL=$(cat stream-gtv.txt)
 
-          TRANS7_URL=$(awk '
-            found {
-              if ($0 ~ /^https?:\/\//) {
-                print $0
-                exit
-              }
-            }
-            /^#EXTINF:-1,Trans7$/ {
-              found=1
-            }
-          ' os4.m3u)
-
           if [ -z "$RCTI_URL" ]; then
-            echo "RCTI URL tidak ditemukan"
+            echo "ERROR: RCTI URL kosong."
             exit 1
           fi
 
           if [ -z "$MNCTV_URL" ]; then
-            echo "MNCTV URL tidak ditemukan"
+            echo "ERROR: MNCTV URL kosong."
             exit 1
           fi
 
           if [ -z "$GTV_URL" ]; then
-            echo "GTV URL tidak ditemukan"
+            echo "ERROR: GTV URL kosong."
+            exit 1
+          fi
+
+          if grep -q "^#EXTINF:-1,Trans7$" os4.m3u; then
+            TRANS7_URL=$(awk '
+              found {
+                if ($0 ~ /^https?:\/\//) {
+                  print $0
+                  exit
+                }
+              }
+              /^#EXTINF:-1,Trans7$/ {
+                found=1
+              }
+            ' os4.m3u)
+          else
+            echo "ERROR: Blok Trans7 tidak ditemukan."
             exit 1
           fi
 
           if [ -z "$TRANS7_URL" ]; then
-            echo "Trans7 URL tidak ditemukan"
+            echo "ERROR: Trans7 URL kosong."
             exit 1
           fi
 
           cat > os4.m3u <<EOF
-          #EXTM3U
+#EXTM3U
 
-          #EXTINF:-1,Trans TV
-          https://livestream.transtv.co.id/stream/live/ttv.m3u8
+#EXTINF:-1,Trans TV
+https://livestream.transtv.co.id/stream/live/ttv.m3u8
 
-          #EXTINF:-1,Trans7
-          $TRANS7_URL
+#EXTINF:-1,Trans7
+$TRANS7_URL
 
-          #EXTINF:-1,RCTI
-          #EXTVLCOPT:http-referrer=$REFERRER
-          #EXTVLCOPT:http-user-agent=$USER_AGENT
-          $RCTI_URL
+#EXTINF:-1,RCTI
+#EXTVLCOPT:http-referrer=$REFERRER
+#EXTVLCOPT:http-user-agent=$USER_AGENT
+$RCTI_URL
 
-          #EXTINF:-1,MNCTV
-          #EXTVLCOPT:http-referrer=$REFERRER
-          #EXTVLCOPT:http-user-agent=$USER_AGENT
-          $MNCTV_URL
+#EXTINF:-1,MNCTV
+#EXTVLCOPT:http-referrer=$REFERRER
+#EXTVLCOPT:http-user-agent=$USER_AGENT
+$MNCTV_URL
 
-          #EXTINF:-1,GTV
-          #EXTVLCOPT:http-referrer=$REFERRER
-          #EXTVLCOPT:http-user-agent=$USER_AGENT
-          $GTV_URL
+#EXTINF:-1,GTV
+#EXTVLCOPT:http-referrer=$REFERRER
+#EXTVLCOPT:http-user-agent=$USER_AGENT
+$GTV_URL
 
-          #EXTINF:-1,TVRI Nasional
-          https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
+#EXTINF:-1,TVRI Nasional
+https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
 
-          #EXTINF:-1,Metro TV
-          https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
-          EOF
-
-          echo "================================="
-          echo "os4.m3u BERHASIL DIBUAT"
-          echo "================================="
+#EXTINF:-1,Metro TV
+https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
+EOF
 
       # ==========================================
-      # SHOW RESULT
+      # CEK PERUBAHAN PER CHANNEL
+      # ==========================================
+
+      - name: Compare channels
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          old = Path("os4.m3u.before").read_text(
+              encoding="utf-8"
+          ).splitlines()
+
+          new = Path("os4.m3u").read_text(
+              encoding="utf-8"
+          ).splitlines()
+
+          channels = [
+              "Trans7",
+              "RCTI",
+              "MNCTV",
+              "GTV",
+          ]
+
+          def get_url(lines, channel):
+              for i, line in enumerate(lines):
+                  if line.strip() == f"#EXTINF:-1,{channel}":
+                      for next_line in lines[i + 1:]:
+                          value = next_line.strip()
+
+                          if value.startswith(
+                              "http://"
+                          ) or value.startswith(
+                              "https://"
+                          ):
+                              return value
+
+                          if value.startswith("#EXTINF"):
+                              break
+
+              return None
+
+          changed = []
+
+          for channel in channels:
+              old_url = get_url(old, channel)
+              new_url = get_url(new, channel)
+
+              print("=================================")
+              print(channel)
+              print("=================================")
+              print("URL LAMA:")
+              print(old_url)
+              print()
+              print("URL BARU:")
+              print(new_url)
+              print()
+
+              if old_url == new_url:
+                  print("STATUS: TIDAK BERUBAH")
+              else:
+                  print("STATUS: BERUBAH")
+                  changed.append(channel)
+
+              print()
+
+          print("=================================")
+          print("RINGKASAN PERUBAHAN")
+          print("=================================")
+
+          if changed:
+              print("Channel yang berubah:")
+              for channel in changed:
+                  print(f"- {channel}")
+          else:
+              print("Tidak ada URL channel yang berubah.")
+
+          # Simpan daftar channel yang berubah
+          Path("changed-channels.txt").write_text(
+              "\n".join(changed) + "\n"
+              if changed
+              else "",
+              encoding="utf-8"
+          )
+          PY
+
+      # ==========================================
+      # SHOW FINAL PLAYLIST
       # ==========================================
 
       - name: Show final playlist
         run: |
           echo "================================="
-          echo "ISI FINAL os4.m3u"
+          echo "os4.m3u FINAL"
           echo "================================="
           cat os4.m3u
 
           echo ""
           echo "================================="
-          echo "RCTI"
+          echo "CHANNEL YANG BERUBAH"
           echo "================================="
-          cat stream-rcti.txt
 
-          echo ""
-          echo "================================="
-          echo "MNCTV"
-          echo "================================="
-          cat stream-mnctv.txt
-
-          echo ""
-          echo "================================="
-          echo "GTV"
-          echo "================================="
-          cat stream-gtv.txt
-
-          echo ""
-          echo "================================="
-          echo "TRANS7"
-          echo "================================="
-          grep -A1 "^#EXTINF:-1,Trans7" os4.m3u
+          if [ -s changed-channels.txt ]; then
+            cat changed-channels.txt
+          else
+            echo "Tidak ada channel berubah."
+          fi
 
       # ==========================================
-      # COMMIT & PUSH
+      # COMMIT HANYA JIKA ADA URL BERUBAH
       # ==========================================
 
       - name: Commit and push
         run: |
+          if [ ! -s changed-channels.txt ]; then
+            echo "================================="
+            echo "TIDAK ADA PERUBAHAN URL"
+            echo "================================="
+            echo "Tidak membuat commit."
+            exit 0
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add os4.m3u
 
           echo "================================="
-          echo "PERUBAHAN"
+          echo "CHANNEL BERUBAH"
+          echo "================================="
+          cat changed-channels.txt
+
+          echo ""
+          echo "================================="
+          echo "PERUBAHAN GIT"
           echo "================================="
 
           git diff --cached --stat
           git diff --cached
 
-          if git diff --cached --quiet; then
-            echo "Tidak ada perubahan."
-            exit 0
-          fi
-
           git commit -m "Update TV streams"
 
+          echo ""
           echo "================================="
           echo "PUSH"
           echo "================================="
 
           git push origin HEAD:main
 
+          echo ""
           echo "================================="
           echo "PUSH BERHASIL"
           echo "================================="
