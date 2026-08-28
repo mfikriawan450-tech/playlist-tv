@@ -1,7 +1,86 @@
+name: Update TV Streams
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-tv-streams
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ==========================================
+      # NODE
+      # ==========================================
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ==========================================
+      # PLAYWRIGHT
+      # ==========================================
+
+      - name: Install Playwright
+        run: |
+          npm install playwright
+          npx playwright install chromium
+
+      # ==========================================
+      # UPDATE RCTI / MNCTV / GTV
+      # ==========================================
+
+      - name: Update RCTI MNCTV GTV
+        run: |
+          node scripts/update-rcti.mjs
+
+      # ==========================================
+      # UPDATE TRANS7
+      # ==========================================
+
+      - name: Update Trans7
+        run: |
+          node scripts/update-trans7.mjs
+
+      # ==========================================
+      # BUILD FINAL os4.m3u
+      #
+      # RCTI / MNCTV / GTV:
+      # URL ASLI dari file hasil update-rcti.mjs
+      #
+      # Trans7:
+      # URL ASLI dari hasil update-trans7.mjs
+      #
+      # TIDAK ADA WORKER
+      # ==========================================
+
       - name: Build os4.m3u
         run: |
           python3 <<'PY'
           from pathlib import Path
+
+          # ==========================================
+          # HEADER RCTI / MNCTV / GTV
+          # ==========================================
 
           REFERRER = "https://www.rctiplus.com/"
 
@@ -11,13 +90,19 @@
               "Chrome/151.0.0.0 Safari/537.36"
           )
 
+          # ==========================================
+          # FUNGSI AMBIL URL ASLI
+          # ==========================================
+
           def read_url(filename, channel):
               path = Path(filename)
 
               if not path.exists():
                   raise RuntimeError(
-                      f"{filename} tidak ditemukan."
+                      f"File {filename} tidak ditemukan."
                   )
+
+              urls = []
 
               for line in path.read_text(
                   encoding="utf-8"
@@ -29,13 +114,19 @@
                       line.startswith("http://")
                       or line.startswith("https://")
                   ):
-                      return line
+                      urls.append(line)
 
-              raise RuntimeError(
-                  f"URL {channel} tidak ditemukan di {filename}."
-              )
+              if not urls:
+                  raise RuntimeError(
+                      f"URL {channel} tidak ditemukan di {filename}."
+                  )
 
-          # URL asli hasil update-rcti.mjs
+              return urls[-1]
+
+          # ==========================================
+          # RCTI / MNCTV / GTV
+          # ==========================================
+
           rcti_url = read_url(
               "stream-rcti.txt",
               "RCTI"
@@ -51,17 +142,34 @@
               "GTV"
           )
 
-          # URL asli hasil update-trans7.mjs
+          # ==========================================
+          # TRANS7
+          # ==========================================
+          #
+          # update-trans7.mjs sebelumnya sudah
+          # memperbarui os4.m3u.
+          #
+          # Kita ambil URL Trans7 dari sana.
+          # ==========================================
+
           os4_old = Path("os4.m3u")
-          old_lines = os4_old.read_text(
+
+          if not os4_old.exists():
+              raise RuntimeError(
+                  "os4.m3u tidak ditemukan setelah update-trans7.mjs."
+              )
+
+          lines = os4_old.read_text(
               encoding="utf-8"
           ).splitlines()
 
           trans7_url = None
 
-          for i, line in enumerate(old_lines):
+          for i, line in enumerate(lines):
+
               if line.strip() == "#EXTINF:-1,Trans7":
-                  for next_line in old_lines[i + 1:]:
+
+                  for next_line in lines[i + 1:]:
                       next_line = next_line.strip()
 
                       if (
@@ -76,54 +184,160 @@
 
           if not trans7_url:
               raise RuntimeError(
-                  "URL Trans7 tidak ditemukan di os4.m3u."
+                  "URL Trans7 tidak ditemukan setelah update-trans7.mjs."
               )
 
           # ==========================================
-          # BUAT os4.m3u FINAL
+          # BANGUN os4.m3u FINAL
           # ==========================================
 
           final_playlist = f"""#EXTM3U
 
-          #EXTINF:-1,Trans TV
-          https://livestream.transtv.co.id/stream/live/ttv.m3u8
+#EXTINF:-1,Trans TV
+https://livestream.transtv.co.id/stream/live/ttv.m3u8
 
-          #EXTINF:-1,Trans7
-          {trans7_url}
+#EXTINF:-1,Trans7
+{trans7_url}
 
-          #EXTINF:-1,RCTI
-          #EXTVLCOPT:http-referrer={REFERRER}
-          #EXTVLCOPT:http-user-agent={USER_AGENT}
-          {rcti_url}
+#EXTINF:-1,RCTI
+#EXTVLCOPT:http-referrer={REFERRER}
+#EXTVLCOPT:http-user-agent={USER_AGENT}
+{rcti_url}
 
-          #EXTINF:-1,MNCTV
-          #EXTVLCOPT:http-referrer={REFERRER}
-          #EXTVLCOPT:http-user-agent={USER_AGENT}
-          {mnctv_url}
+#EXTINF:-1,MNCTV
+#EXTVLCOPT:http-referrer={REFERRER}
+#EXTVLCOPT:http-user-agent={USER_AGENT}
+{mnctv_url}
 
-          #EXTINF:-1,GTV
-          #EXTVLCOPT:http-referrer={REFERRER}
-          #EXTVLCOPT:http-user-agent={USER_AGENT}
-          {gtv_url}
+#EXTINF:-1,GTV
+#EXTVLCOPT:http-referrer={REFERRER}
+#EXTVLCOPT:http-user-agent={USER_AGENT}
+{gtv_url}
 
-          #EXTINF:-1,TVRI Nasional
-          https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
+#EXTINF:-1,TVRI Nasional
+https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
 
-          #EXTINF:-1,Metro TV
-          https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
-          """
+#EXTINF:-1,Metro TV
+https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
+"""
 
-          final_playlist = "\n".join(
-              line.strip()
-              for line in final_playlist.strip().splitlines()
-          ) + "\n"
+          # ==========================================
+          # SIMPAN
+          # ==========================================
 
-          os4_old.write_text(
+          Path("os4.m3u").write_text(
               final_playlist,
               encoding="utf-8"
           )
 
           print("=================================")
-          print("os4.m3u FINAL BERHASIL DIBUAT")
+          print("FINAL os4.m3u")
           print("=================================")
+          print(final_playlist)
+
+          print("=================================")
+          print("URL RCTI")
+          print("=================================")
+          print(rcti_url)
+
+          print("=================================")
+          print("URL MNCTV")
+          print("=================================")
+          print(mnctv_url)
+
+          print("=================================")
+          print("URL GTV")
+          print("=================================")
+          print(gtv_url)
+
+          print("=================================")
+          print("URL TRANS7")
+          print("=================================")
+          print(trans7_url)
           PY
+
+      # ==========================================
+      # TAMPILKAN HASIL
+      # ==========================================
+
+      - name: Show final files
+        run: |
+          echo "================================="
+          echo "ISI FINAL os4.m3u"
+          echo "================================="
+          cat os4.m3u
+
+          echo ""
+          echo "================================="
+          echo "stream-rcti.txt"
+          echo "================================="
+          cat stream-rcti.txt
+
+          echo ""
+          echo "================================="
+          echo "stream-mnctv.txt"
+          echo "================================="
+          cat stream-mnctv.txt
+
+          echo ""
+          echo "================================="
+          echo "stream-gtv.txt"
+          echo "================================="
+          cat stream-gtv.txt
+
+          echo ""
+          echo "================================="
+          echo "stream-trans7.txt"
+          echo "================================="
+          cat stream-trans7.txt
+
+      # ==========================================
+      # COMMIT & PUSH
+      # ==========================================
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          echo "================================="
+          echo "STATUS GIT"
+          echo "================================="
+
+          git status --short
+
+          echo ""
+          echo "================================="
+          echo "ADD FILE"
+          echo "================================="
+
+          # HANYA file final yang disimpan
+          git add os4.m3u
+          git add stream-trans7.txt
+
+          echo ""
+          echo "================================="
+          echo "PERUBAHAN"
+          echo "================================="
+
+          git diff --cached --stat
+          git diff --cached
+
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan."
+            exit 0
+          fi
+
+          git commit -m "Update TV streams"
+
+          echo ""
+          echo "================================="
+          echo "PUSH"
+          echo "================================="
+
+          git push origin HEAD:main
+
+          echo ""
+          echo "================================="
+          echo "PUSH BERHASIL"
+          echo "================================="
