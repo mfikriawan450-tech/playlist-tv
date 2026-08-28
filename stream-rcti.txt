@@ -1,1 +1,5 @@
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787911766~hmac=de947dd1d50792e9ef4402224ef3279f762cf4adc569c0da7eddeacb2b7f49ea
+#EXTM3U
+#EXTINF:-1,RCTI
+#EXTVLCOPT:http-referrer=https://www.rctiplus.com/
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
+https://iptv-gateway.mfikriawan450.workers.dev/rcti
