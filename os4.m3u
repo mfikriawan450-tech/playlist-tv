@@ -13,7 +13,9 @@ https://iptv-gateway.mfikriawan450.workers.dev/rcti
 https://iptv-gateway.mfikriawan450.workers.dev/mnctv
 
 #EXTINF:-1,GTV
-https://iptv-gateway.mfikriawan450.workers.dev/gtv
+#EXTVLCOPT:http-referrer=https://www.rctiplus.com/
+#EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787920855~hmac=c0b4212f523547d3d196eaf5b6689a3fa2b93341920a9d2d2d1c53719ae40e8a
 
 #EXTINF:-1,TVRI Nasional
 https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
