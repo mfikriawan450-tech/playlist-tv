@@ -1,75 +1,3 @@
-name: Update TV Streams
-
-on:
-  workflow_dispatch:
-
-  schedule:
-    - cron: "*/30 * * * *"
-
-permissions:
-  contents: write
-
-concurrency:
-  group: update-tv-streams
-  cancel-in-progress: false
-
-jobs:
-  update:
-    runs-on: ubuntu-latest
-
-    steps:
-      # ==========================================
-      # CHECKOUT
-      # ==========================================
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # ==========================================
-      # NODE
-      # ==========================================
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      # ==========================================
-      # PLAYWRIGHT
-      # ==========================================
-
-      - name: Install Playwright
-        run: |
-          npm install playwright
-          npx playwright install chromium
-
-      # ==========================================
-      # UPDATE RCTI / MNCTV / GTV
-      # ==========================================
-
-      - name: Update RCTI MNCTV GTV
-        run: |
-          node scripts/update-rcti.mjs
-
-      # ==========================================
-      # UPDATE TRANS7
-      # ==========================================
-
-      - name: Update Trans7
-        run: |
-          node scripts/update-trans7.mjs
-
-      # ==========================================
-      # UPDATE os4.m3u
-      #
-      # RCTI/MNCTV/GTV:
-      # langsung memakai URL ASLI terbaru
-      #
-      # Tidak menggunakan Worker
-      # ==========================================
-
       - name: Build os4.m3u
         run: |
           python3 <<'PY'
@@ -107,10 +35,7 @@ jobs:
                   f"URL {channel} tidak ditemukan di {filename}."
               )
 
-          # ==========================================
-          # AMBIL URL ASLI HASIL update-rcti.mjs
-          # ==========================================
-
+          # URL asli hasil update-rcti.mjs
           rcti_url = read_url(
               "stream-rcti.txt",
               "RCTI"
@@ -126,40 +51,28 @@ jobs:
               "GTV"
           )
 
-          # ==========================================
-          # BACA os4.m3u YANG SUDAH DIUBAH update-trans7
-          # ==========================================
+          # URL asli hasil update-trans7.mjs
+          os4_old = Path("os4.m3u")
+          old_lines = os4_old.read_text(
+              encoding="utf-8"
+          ).splitlines()
 
           trans7_url = None
 
-          os4_old = Path("os4.m3u")
-
-          if os4_old.exists():
-
-              lines = os4_old.read_text(
-                  encoding="utf-8"
-              ).splitlines()
-
-              current = None
-
-              for line in lines:
-
-                  stripped = line.strip()
-
-                  if stripped.startswith(
-                      "#EXTINF:-1,Trans7"
-                  ):
-                      current = "Trans7"
-                      continue
-
-                  if current == "Trans7":
+          for i, line in enumerate(old_lines):
+              if line.strip() == "#EXTINF:-1,Trans7":
+                  for next_line in old_lines[i + 1:]:
+                      next_line = next_line.strip()
 
                       if (
-                          stripped.startswith("http://")
-                          or stripped.startswith("https://")
+                          next_line.startswith("http://")
+                          or next_line.startswith("https://")
                       ):
-                          trans7_url = stripped
+                          trans7_url = next_line
                           break
+
+                  if trans7_url:
+                      break
 
           if not trans7_url:
               raise RuntimeError(
@@ -167,7 +80,7 @@ jobs:
               )
 
           # ==========================================
-          # BANGUN os4.m3u FINAL
+          # BUAT os4.m3u FINAL
           # ==========================================
 
           final_playlist = f"""#EXTM3U
@@ -200,102 +113,17 @@ jobs:
           https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
           """
 
-          # Hilangkan indentasi awal dari f-string
           final_playlist = "\n".join(
               line.strip()
               for line in final_playlist.strip().splitlines()
           ) + "\n"
 
-          Path("os4.m3u").write_text(
+          os4_old.write_text(
               final_playlist,
               encoding="utf-8"
           )
 
           print("=================================")
-          print("os4.m3u BERHASIL DIBUAT")
+          print("os4.m3u FINAL BERHASIL DIBUAT")
           print("=================================")
           PY
-
-      # ==========================================
-      # SHOW RESULT
-      # ==========================================
-
-      - name: Show final playlist
-        run: |
-          echo "================================="
-          echo "ISI FINAL os4.m3u"
-          echo "================================="
-          cat os4.m3u
-
-          echo ""
-          echo "================================="
-          echo "URL ASLI RCTI"
-          echo "================================="
-          cat stream-rcti.txt
-
-          echo ""
-          echo "================================="
-          echo "URL ASLI MNCTV"
-          echo "================================="
-          cat stream-mnctv.txt
-
-          echo ""
-          echo "================================="
-          echo "URL ASLI GTV"
-          echo "================================="
-          cat stream-gtv.txt
-
-          echo ""
-          echo "================================="
-          echo "URL TRANS7"
-          echo "================================="
-          grep -A1 "^#EXTINF:-1,Trans7" os4.m3u
-
-      # ==========================================
-      # COMMIT & PUSH
-      # ==========================================
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          echo "================================="
-          echo "STATUS GIT"
-          echo "================================="
-
-          git status --short
-
-          echo ""
-          echo "================================="
-          echo "MENAMBAHKAN FILE"
-          echo "================================="
-
-          git add os4.m3u
-
-          echo ""
-          echo "================================="
-          echo "PERUBAHAN YANG AKAN DI-COMMIT"
-          echo "================================="
-
-          git diff --cached --stat
-          git diff --cached
-
-          if git diff --cached --quiet; then
-            echo "Tidak ada perubahan."
-            exit 0
-          fi
-
-          git commit -m "Update TV streams"
-
-          echo ""
-          echo "================================="
-          echo "PUSH"
-          echo "================================="
-
-          git push origin HEAD:main
-
-          echo ""
-          echo "================================="
-          echo "PUSH BERHASIL"
-          echo "================================="
