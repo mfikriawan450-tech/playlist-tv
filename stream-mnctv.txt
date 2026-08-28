@@ -1,5 +1,3 @@
-#EXTM3U
-#EXTINF:-1,MNCTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
 https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1787916429~hmac=7816a4844bd8d932bea84473fb8eaf000946392328af78b80737b04d7b71ab27
