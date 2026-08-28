@@ -54,171 +54,116 @@ jobs:
           node scripts/update-rcti.mjs
 
       # ==========================================
-      # FORMAT STREAM FILES
-      #
-      # stream-*.txt:
-      # header tetap
-      # URL asli selalu dari hasil update-rcti.mjs
-      # ==========================================
-
-      - name: Format stream files RCTI MNCTV GTV
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-
-          USER_AGENT = (
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-              "AppleWebKit/537.36 (KHTML, like Gecko) "
-              "Chrome/151.0.0.0 Safari/537.36"
-          )
-
-          REFERRER = "https://www.rctiplus.com/"
-
-          channels = {
-              "RCTI": "stream-rcti.txt",
-              "MNCTV": "stream-mnctv.txt",
-              "GTV": "stream-gtv.txt",
-          }
-
-          for channel, filename in channels.items():
-              path = Path(filename)
-
-              if not path.exists():
-                  raise RuntimeError(
-                      f"File {filename} tidak ditemukan."
-                  )
-
-              # ======================================
-              # Ambil URL ASLI dari hasil
-              # update-rcti.mjs
-              # ======================================
-
-              lines = path.read_text(
-                  encoding="utf-8"
-              ).splitlines()
-
-              stream_url = None
-
-              for line in lines:
-                  line = line.strip()
-
-                  if not line:
-                      continue
-
-                  # Lewati metadata/header lama
-                  if line.startswith("#"):
-                      continue
-
-                  if line.startswith("http://") or line.startswith("https://"):
-                      # Ambil URL terakhir yang ditemukan
-                      stream_url = line
-
-              if not stream_url:
-                  raise RuntimeError(
-                      f"URL stream {channel} tidak ditemukan "
-                      f"di {filename}."
-                  )
-
-              # ======================================
-              # Tulis ulang file dengan format tetap
-              # ======================================
-
-              content = (
-                  "#EXTM3U\n"
-                  f"#EXTINF:-1,{channel}\n"
-                  f"#EXTVLCOPT:http-referrer={REFERRER}\n"
-                  f"#EXTVLCOPT:http-user-agent={USER_AGENT}\n"
-                  f"{stream_url}\n"
-              )
-
-              path.write_text(
-                  content,
-                  encoding="utf-8"
-              )
-
-              print("=================================")
-              print(f"{channel}")
-              print("=================================")
-              print("URL ASLI:")
-              print(stream_url)
-              print(f"FILE: {filename}")
-              print()
-
-          print("=================================")
-          print("SEMUA STREAM FILE BERHASIL DIFORMAT")
-          print("=================================")
-          PY
-
-      # ==========================================
-      # BERSIHKAN os4.m3u
-      #
-      # RCTI/MNCTV/GTV = URL WORKER SAJA
-      # ==========================================
-
-      - name: Update os4.m3u
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path("os4.m3u")
-
-          text = path.read_text(
-              encoding="utf-8"
-          )
-
-          workers = {
-              "RCTI":
-                  "https://iptv-gateway.mfikriawan450.workers.dev/rcti",
-
-              "MNCTV":
-                  "https://iptv-gateway.mfikriawan450.workers.dev/mnctv",
-
-              "GTV":
-                  "https://iptv-gateway.mfikriawan450.workers.dev/gtv",
-          }
-
-          for channel, worker_url in workers.items():
-
-              pattern = re.compile(
-                  rf"(?ms)"
-                  rf"^#EXTINF:-1,{re.escape(channel)}\s*$"
-                  rf".*?"
-                  rf"(?=^#EXTINF|\Z)"
-              )
-
-              replacement = (
-                  f"#EXTINF:-1,{channel}\n"
-                  f"{worker_url}\n\n"
-              )
-
-              if not pattern.search(text):
-                  raise RuntimeError(
-                      f"Channel {channel} tidak ditemukan di os4.m3u"
-                  )
-
-              text = pattern.sub(
-                  replacement,
-                  text
-              )
-
-          path.write_text(
-              text.rstrip() + "\n",
-              encoding="utf-8"
-          )
-
-          print("=================================")
-          print("os4.m3u BERHASIL DIPERBARUI")
-          print("=================================")
-          PY
-
-      # ==========================================
       # UPDATE TRANS7
       # ==========================================
 
       - name: Update Trans7
         run: |
           node scripts/update-trans7.mjs
+
+      # ==========================================
+      # FORMAT STREAM TXT
+      #
+      # Ketiga file hanya berisi URL ASLI
+      # tanpa header / referer / metadata.
+      # ==========================================
+
+      - name: Format stream TXT
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          files = {
+              "stream-rcti.txt": "RCTI",
+              "stream-mnctv.txt": "MNCTV",
+              "stream-gtv.txt": "GTV",
+          }
+
+          for filename, channel in files.items():
+              path = Path(filename)
+
+              if not path.exists():
+                  raise RuntimeError(
+                      f"{filename} tidak ditemukan."
+                  )
+
+              lines = path.read_text(
+                  encoding="utf-8"
+              ).splitlines()
+
+              url = None
+
+              for line in lines:
+                  line = line.strip()
+
+                  if (
+                      line.startswith("http://")
+                      or line.startswith("https://")
+                  ):
+                      url = line
+
+              if not url:
+                  raise RuntimeError(
+                      f"URL asli {channel} tidak ditemukan "
+                      f"di {filename}."
+                  )
+
+              # Hanya URL asli
+              path.write_text(
+                  url + "\n",
+                  encoding="utf-8"
+              )
+
+              print("=================================")
+              print(channel)
+              print("=================================")
+              print("URL:")
+              print(url)
+              print(f"File: {filename}")
+              print()
+
+          print("=================================")
+          print("SEMUA STREAM TXT BERISI URL ASLI")
+          print("=================================")
+          PY
+
+      # ==========================================
+      # PASTIKAN os4.m3u MENGGUNAKAN WORKER
+      # + HEADER / REFERER TETAP DI os4.m3u
+      # ==========================================
+
+      - name: Update os4.m3u
+        run: |
+          cat > os4.m3u <<'EOF'
+          #EXTM3U
+
+          #EXTINF:-1,Trans TV
+          https://livestream.transtv.co.id/stream/live/ttv.m3u8
+
+          #EXTINF:-1,Trans7
+          https://iptv-gateway.mfikriawan450.workers.dev/trans7
+
+          #EXTINF:-1,RCTI
+          #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
+          #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
+          https://iptv-gateway.mfikriawan450.workers.dev/rcti
+
+          #EXTINF:-1,MNCTV
+          #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
+          #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
+          https://iptv-gateway.mfikriawan450.workers.dev/mnctv
+
+          #EXTINF:-1,GTV
+          #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
+          #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
+          https://iptv-gateway.mfikriawan450.workers.dev/gtv
+
+          #EXTINF:-1,TVRI Nasional
+          https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
+
+          #EXTINF:-1,Metro TV
+          https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8
+          EOF
 
       # ==========================================
       # SHOW RESULT
