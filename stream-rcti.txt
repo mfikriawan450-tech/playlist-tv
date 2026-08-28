@@ -2,4 +2,4 @@
 #EXTINF:-1,RCTI
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787915490~hmac=9a3070139ce9358b524cd5424aaaac761111510bbe15c6b2816ca1a797d0be54
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787916425~hmac=4a8c87093f7fdf5ad4b1e4c30f24b16bfa24820a9957cc494e68dc9e52e5d817

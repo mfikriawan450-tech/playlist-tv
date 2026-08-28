@@ -2,4 +2,4 @@
 #EXTINF:-1,GTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787922698~hmac=bf50797889d9015bdec1706468503a0334abccb783765ee10f8fee162226d548
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1787923632~hmac=2900fb9d840936b283517daf5574fc075a5f3a3053cce07d2f6778b9b347eba5
