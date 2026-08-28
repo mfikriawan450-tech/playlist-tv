@@ -2,7 +2,7 @@ import { chromium } from "playwright";
 import fs from "fs";
 
 const PAGE_URL = "https://sevenhub.id/live";
-const OUTPUT_FILE = "stream-trans7.txt";
+const PLAYLIST_FILE = "os4.m3u";
 
 console.log("=================================");
 console.log("MEMBUKA SEVENHUB");
@@ -100,7 +100,7 @@ try {
 }
 
 // ==========================================
-// TUNGGU STREAM
+// TUNGGU PLAYER
 // ==========================================
 
 console.log("Menunggu player...");
@@ -180,7 +180,8 @@ console.log("HASIL DETEKSI TRANS7");
 console.log("=================================");
 
 if (!originalUrl) {
-  console.log("M3U8 TRANS7 TIDAK DITEMUKAN.");
+  console.error("M3U8 TRANS7 TIDAK DITEMUKAN.");
+  process.exit(1);
 }
 
 console.log("");
@@ -194,7 +195,6 @@ console.log(originalUrl);
 let finalUrl = originalUrl;
 
 if (originalUrl.includes("live-240.m3u8")) {
-
   const url720 = originalUrl.replace(
     "live-240.m3u8",
     "live-720.m3u8"
@@ -223,7 +223,6 @@ if (originalUrl.includes("live-240.m3u8")) {
     console.log("STATUS 720P:", response720.status);
 
     if (response720.status === 200) {
-
       finalUrl = url720;
 
       console.log("");
@@ -232,7 +231,6 @@ if (originalUrl.includes("live-240.m3u8")) {
       console.log("=================================");
       console.log("Menggunakan URL 720P.");
     } else {
-
       console.log("");
       console.log("=================================");
       console.log("720P TIDAK TERSEDIA");
@@ -241,7 +239,6 @@ if (originalUrl.includes("live-240.m3u8")) {
     }
 
   } catch (error) {
-
     console.log("");
     console.log("GAGAL TEST 720P:");
     console.log(error.message);
@@ -251,21 +248,49 @@ if (originalUrl.includes("live-240.m3u8")) {
   }
 
 } else {
-
   console.log("");
   console.log("URL tidak menggunakan pola live-240.m3u8.");
   console.log("URL asli akan digunakan.");
 }
 
 // ==========================================
-// SIMPAN URL FINAL
+// UPDATE LANGSUNG os4.m3u
 // ==========================================
 
-fs.writeFileSync(
-  OUTPUT_FILE,
-  finalUrl.trim() + "\n",
+if (!fs.existsSync(PLAYLIST_FILE)) {
+  console.error(`File ${PLAYLIST_FILE} tidak ditemukan.`);
+  process.exit(1);
+}
+
+let playlist = fs.readFileSync(
+  PLAYLIST_FILE,
   "utf8"
 );
+
+const blockRegex = /(#EXTINF:-1,Trans7\r?\n)(https?:\/\/[^\r\n]+)/;
+
+if (!blockRegex.test(playlist)) {
+  console.error(
+    "Blok Trans7 tidak ditemukan di os4.m3u."
+  );
+
+  process.exit(1);
+}
+
+playlist = playlist.replace(
+  blockRegex,
+  `$1${finalUrl}`
+);
+
+fs.writeFileSync(
+  PLAYLIST_FILE,
+  playlist,
+  "utf8"
+);
+
+// ==========================================
+// SELESAI
+// ==========================================
 
 console.log("");
 console.log("=================================");
@@ -278,7 +303,7 @@ console.log(finalUrl);
 
 console.log("");
 console.log("FILE:");
-console.log(OUTPUT_FILE);
+console.log(PLAYLIST_FILE);
 
 console.log("");
 console.log("=================================");
