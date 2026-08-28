@@ -77,7 +77,7 @@ jobs:
       # sudah di-update langsung oleh update-trans7.mjs
       # ==========================================
 
-      - name: Build os4.m3u
+      - name: Update RCTI MNCTV GTV in os4.m3u
         env:
           REFERRER: "https://www.rctiplus.com/"
           USER_AGENT: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
@@ -85,7 +85,6 @@ jobs:
           RCTI_URL="$(cat stream-rcti.txt)"
           MNCTV_URL="$(cat stream-mnctv.txt)"
           GTV_URL="$(cat stream-gtv.txt)"
-          TRANS7_URL="$(cat stream-trans7.txt)"
 
           if [ -z "$RCTI_URL" ]; then
             echo "ERROR: RCTI URL kosong."
@@ -102,44 +101,101 @@ jobs:
             exit 1
           fi
 
-          if [ -z "$TRANS7_URL" ]; then
-            echo "ERROR: Trans7 URL kosong."
-            exit 1
-          fi
+          python3 <<'PY'
+          from pathlib import Path
+          import re
 
-          printf '%s\n' \
-            '#EXTM3U' \
-            '' \
-            '#EXTINF:-1,Trans TV' \
-            'https://livestream.transtv.co.id/stream/live/ttv.m3u8' \
-            '' \
-            '#EXTINF:-1,Trans7' \
-            "$TRANS7_URL" \
-            '' \
-            '#EXTINF:-1,RCTI' \
-            "#EXTVLCOPT:http-referrer=$REFERRER" \
-            "#EXTVLCOPT:http-user-agent=$USER_AGENT" \
-            "$RCTI_URL" \
-            '' \
-            '#EXTINF:-1,MNCTV' \
-            "#EXTVLCOPT:http-referrer=$REFERRER" \
-            "#EXTVLCOPT:http-user-agent=$USER_AGENT" \
-            "$MNCTV_URL" \
-            '' \
-            '#EXTINF:-1,GTV' \
-            "#EXTVLCOPT:http-referrer=$REFERRER" \
-            "#EXTVLCOPT:http-user-agent=$USER_AGENT" \
-            "$GTV_URL" \
-            '' \
-            '#EXTINF:-1,TVRI Nasional' \
-            'https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8' \
-            '' \
-            '#EXTINF:-1,Metro TV' \
-            'https://edge-medcom.streamized.net/live-edge/smil:metro.smil/playlist.m3u8' \
-            > os4.m3u
+          path = Path("os4.m3u")
+          text = path.read_text(encoding="utf-8")
 
+          rcti_url = Path("stream-rcti.txt").read_text(
+              encoding="utf-8"
+          ).strip()
+
+          mnctv_url = Path("stream-mnctv.txt").read_text(
+              encoding="utf-8"
+          ).strip()
+
+          gtv_url = Path("stream-gtv.txt").read_text(
+              encoding="utf-8"
+          ).strip()
+
+          referrer = "https://www.rctiplus.com/"
+
+          user_agent = (
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+              "AppleWebKit/537.36 (KHTML, like Gecko) "
+              "Chrome/151.0.0.0 Safari/537.36"
+          )
+
+          def replace_channel(text, channel, url, with_headers=False):
+              pattern = re.compile(
+                  rf"(?ms)^#EXTINF:-1,{re.escape(channel)}\s*$.*?(?=^#EXTINF|\Z)"
+              )
+
+              if not pattern.search(text):
+                  raise RuntimeError(
+                      f"Channel {channel} tidak ditemukan di os4.m3u"
+                  )
+
+              if with_headers:
+                  block = (
+                      f"#EXTINF:-1,{channel}\n"
+                      f"#EXTVLCOPT:http-referrer={referrer}\n"
+                      f"#EXTVLCOPT:http-user-agent={user_agent}\n"
+                      f"{url}\n\n"
+                  )
+              else:
+                  block = (
+                      f"#EXTINF:-1,{channel}\n"
+                      f"{url}\n\n"
+                  )
+
+              return pattern.sub(block, text, count=1)
+
+          # ==========================================
+          # HANYA RCTI / MNCTV / GTV YANG DIUBAH
+          # ==========================================
+
+          text = replace_channel(
+              text,
+              "RCTI",
+              rcti_url,
+              True
+          )
+
+          text = replace_channel(
+              text,
+              "MNCTV",
+              mnctv_url,
+              True
+          )
+
+          text = replace_channel(
+              text,
+              "GTV",
+              gtv_url,
+              True
+          )
+
+          # ==========================================
+          # TRANS7 SENGAJA TIDAK DISENTUH
+          # ==========================================
+
+          path.write_text(
+              text.rstrip() + "\n",
+              encoding="utf-8"
+          )
+
+          print("=================================")
+          print("RCTI / MNCTV / GTV DIPERBARUI")
+          print("=================================")
+          print("Trans7 dipertahankan apa adanya dari update-trans7.mjs.")
+          PY
+
+          echo ""
           echo "================================="
-          echo "os4.m3u FINAL"
+          echo "HASIL os4.m3u"
           echo "================================="
           cat os4.m3u
       # ==========================================
