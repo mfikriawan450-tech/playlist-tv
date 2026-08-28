@@ -54,17 +54,17 @@ jobs:
           node scripts/update-rcti.mjs
 
       # ==========================================
-      # PISAHKAN HEADER KE FILE STREAM
+      # FORMAT STREAM FILES
+      #
+      # stream-*.txt:
+      # header tetap
+      # URL asli selalu dari hasil update-rcti.mjs
       # ==========================================
 
-      - name: Update stream files RCTI MNCTV GTV
+      - name: Format stream files RCTI MNCTV GTV
         run: |
           python3 <<'PY'
           from pathlib import Path
-          import re
-
-          os4 = Path("os4.m3u")
-          text = os4.read_text(encoding="utf-8")
 
           USER_AGENT = (
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -75,141 +75,140 @@ jobs:
           REFERRER = "https://www.rctiplus.com/"
 
           channels = {
-              "RCTI": {
-                  "file": "stream-rcti.txt",
-                  "worker": "https://iptv-gateway.mfikriawan450.workers.dev/rcti",
-              },
-              "MNCTV": {
-                  "file": "stream-mnctv.txt",
-                  "worker": "https://iptv-gateway.mfikriawan450.workers.dev/mnctv",
-              },
-              "GTV": {
-                  "file": "stream-gtv.txt",
-                  "worker": "https://iptv-gateway.mfikriawan450.workers.dev/gtv",
-              },
+              "RCTI": "stream-rcti.txt",
+              "MNCTV": "stream-mnctv.txt",
+              "GTV": "stream-gtv.txt",
           }
 
-          # ------------------------------------------
-          # Ambil URL asli dari os4.m3u
-          # ------------------------------------------
+          for channel, filename in channels.items():
+              path = Path(filename)
 
-          def get_channel_url(channel):
-              pattern = (
-                  r"#EXTINF:-1," + re.escape(channel) +
-                  r"\s+(.*?)"
-                  r"(?=\n#EXTINF|\Z)"
-              )
-
-              match = re.search(pattern, text, re.S)
-
-              if not match:
+              if not path.exists():
                   raise RuntimeError(
-                      f"Channel {channel} tidak ditemukan di os4.m3u"
+                      f"File {filename} tidak ditemukan."
                   )
 
-              block = match.group(1)
+              # ======================================
+              # Ambil URL ASLI dari hasil
+              # update-rcti.mjs
+              # ======================================
 
-              # Buang baris EXT-VLC-OPT
-              lines = []
+              lines = path.read_text(
+                  encoding="utf-8"
+              ).splitlines()
 
-              for line in block.splitlines():
+              stream_url = None
+
+              for line in lines:
                   line = line.strip()
 
                   if not line:
                       continue
 
-                  if line.startswith("#EXTVLCOPT:"):
-                      continue
-
+                  # Lewati metadata/header lama
                   if line.startswith("#"):
                       continue
 
-                  lines.append(line)
+                  if line.startswith("http://") or line.startswith("https://"):
+                      # Ambil URL terakhir yang ditemukan
+                      stream_url = line
 
-              if not lines:
+              if not stream_url:
                   raise RuntimeError(
-                      f"URL {channel} tidak ditemukan di os4.m3u"
+                      f"URL stream {channel} tidak ditemukan "
+                      f"di {filename}."
                   )
 
-              return lines[-1]
-
-
-          # ------------------------------------------
-          # Buat stream-rcti.txt
-          # stream-mnctv.txt
-          # stream-gtv.txt
-          # ------------------------------------------
-
-          for channel, config in channels.items():
-              url = get_channel_url(channel)
+              # ======================================
+              # Tulis ulang file dengan format tetap
+              # ======================================
 
               content = (
                   "#EXTM3U\n"
                   f"#EXTINF:-1,{channel}\n"
                   f"#EXTVLCOPT:http-referrer={REFERRER}\n"
                   f"#EXTVLCOPT:http-user-agent={USER_AGENT}\n"
-                  f"{url}\n"
+                  f"{stream_url}\n"
               )
 
-              Path(config["file"]).write_text(
+              path.write_text(
                   content,
                   encoding="utf-8"
               )
 
-              print(f"{channel} URL terbaru:")
-              print(url)
-              print(f"Ditulis ke {config['file']}")
+              print("=================================")
+              print(f"{channel}")
+              print("=================================")
+              print("URL ASLI:")
+              print(stream_url)
+              print(f"FILE: {filename}")
               print()
 
+          print("=================================")
+          print("SEMUA STREAM FILE BERHASIL DIFORMAT")
+          print("=================================")
+          PY
 
-          # ------------------------------------------
-          # Bersihkan os4.m3u
-          #
-          # RCTI/MNCTV/GTV:
-          # hanya URL Worker
-          # ------------------------------------------
+      # ==========================================
+      # BERSIHKAN os4.m3u
+      #
+      # RCTI/MNCTV/GTV = URL WORKER SAJA
+      # ==========================================
 
-          worker_urls = {
-              "RCTI": channels["RCTI"]["worker"],
-              "MNCTV": channels["MNCTV"]["worker"],
-              "GTV": channels["GTV"]["worker"],
+      - name: Update os4.m3u
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("os4.m3u")
+
+          text = path.read_text(
+              encoding="utf-8"
+          )
+
+          workers = {
+              "RCTI":
+                  "https://iptv-gateway.mfikriawan450.workers.dev/rcti",
+
+              "MNCTV":
+                  "https://iptv-gateway.mfikriawan450.workers.dev/mnctv",
+
+              "GTV":
+                  "https://iptv-gateway.mfikriawan450.workers.dev/gtv",
           }
 
-          lines = text.splitlines()
-          output = []
+          for channel, worker_url in workers.items():
 
-          current_channel = None
+              pattern = re.compile(
+                  rf"(?ms)"
+                  rf"^#EXTINF:-1,{re.escape(channel)}\s*$"
+                  rf".*?"
+                  rf"(?=^#EXTINF|\Z)"
+              )
 
-          for line in lines:
-              stripped = line.strip()
+              replacement = (
+                  f"#EXTINF:-1,{channel}\n"
+                  f"{worker_url}\n\n"
+              )
 
-              if stripped.startswith("#EXTINF:-1,"):
-                  channel_name = stripped.replace("#EXTINF:-1,", "", 1).strip()
-                  current_channel = channel_name
+              if not pattern.search(text):
+                  raise RuntimeError(
+                      f"Channel {channel} tidak ditemukan di os4.m3u"
+                  )
 
-                  output.append(line)
-                  continue
+              text = pattern.sub(
+                  replacement,
+                  text
+              )
 
-              if current_channel in worker_urls:
-                  if stripped.startswith("#EXTVLCOPT:"):
-                      continue
-
-                  # URL lama pada RCTI/MNCTV/GTV diganti Worker
-                  if stripped and not stripped.startswith("#"):
-                      output.append(worker_urls[current_channel])
-                      current_channel = None
-                      continue
-
-              output.append(line)
-
-          os4.write_text(
-              "\n".join(output).rstrip() + "\n",
+          path.write_text(
+              text.rstrip() + "\n",
               encoding="utf-8"
           )
 
           print("=================================")
-          print("os4.m3u berhasil dibersihkan.")
-          print("RCTI/MNCTV/GTV sekarang hanya menggunakan URL Worker.")
+          print("os4.m3u BERHASIL DIPERBARUI")
           print("=================================")
           PY
 
@@ -225,7 +224,7 @@ jobs:
       # SHOW RESULT
       # ==========================================
 
-      - name: Show updated playlist
+      - name: Show updated files
         run: |
           echo "================================="
           echo "ISI os4.m3u"
@@ -249,6 +248,12 @@ jobs:
           echo "ISI stream-gtv.txt"
           echo "================================="
           cat stream-gtv.txt
+
+          echo ""
+          echo "================================="
+          echo "ISI stream-trans7.txt"
+          echo "================================="
+          cat stream-trans7.txt
 
       # ==========================================
       # COMMIT & PUSH
