@@ -189,68 +189,82 @@ console.log("URL ASLI:");
 console.log(originalUrl);
 
 // ==========================================
-// COBA UBAH 240 → 720
+// COBA UBAH 240 → 480
 // ==========================================
 
 let finalUrl = originalUrl;
 
 if (originalUrl.includes("live-240.m3u8")) {
-  const url720 = originalUrl.replace(
+
+  const url480 = originalUrl.replace(
     "live-240.m3u8",
-    "live-720.m3u8"
+    "live-480.m3u8"
   );
 
   console.log("");
   console.log("=================================");
-  console.log("MENCOBA STREAM 720P");
+  console.log("MENCOBA STREAM 480P");
   console.log("=================================");
-  console.log(url720);
+  console.log(url480);
 
   try {
-    const response720 = await fetch(url720, {
+    const response480 = await fetch(url480, {
       method: "GET",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
           "AppleWebKit/537.36 (KHTML, like Gecko) " +
           "Chrome/151.0.0.0 Safari/537.36",
+
         "Referer": "https://sevenhub.id/"
       },
       redirect: "follow"
     });
 
     console.log("");
-    console.log("STATUS 720P:", response720.status);
+    console.log("STATUS 480P:", response480.status);
 
-    if (response720.status === 200) {
-      finalUrl = url720;
+    if (response480.status === 200) {
+
+      finalUrl = url480;
 
       console.log("");
       console.log("=================================");
-      console.log("720P TERSEDIA!");
+      console.log("480P TERSEDIA!");
       console.log("=================================");
-      console.log("Menggunakan URL 720P.");
+      console.log("Menggunakan URL 480P.");
+
     } else {
+
       console.log("");
       console.log("=================================");
-      console.log("720P TIDAK TERSEDIA");
+      console.log("480P TIDAK TERSEDIA");
       console.log("=================================");
       console.log("Kembali menggunakan URL asli.");
+
     }
 
   } catch (error) {
+
     console.log("");
-    console.log("GAGAL TEST 720P:");
+    console.log("GAGAL TEST 480P:");
     console.log(error.message);
 
     console.log("");
     console.log("Menggunakan URL asli.");
+
   }
 
 } else {
+
   console.log("");
-  console.log("URL tidak menggunakan pola live-240.m3u8.");
-  console.log("URL asli akan digunakan.");
+  console.log(
+    "URL tidak menggunakan pola live-240.m3u8."
+  );
+
+  console.log(
+    "URL asli akan digunakan."
+  );
 }
 
 // ==========================================
