@@ -54,6 +54,166 @@ jobs:
           node scripts/update-rcti.mjs
 
       # ==========================================
+      # PISAHKAN HEADER KE FILE STREAM
+      # ==========================================
+
+      - name: Update stream files RCTI MNCTV GTV
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          os4 = Path("os4.m3u")
+          text = os4.read_text(encoding="utf-8")
+
+          USER_AGENT = (
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+              "AppleWebKit/537.36 (KHTML, like Gecko) "
+              "Chrome/151.0.0.0 Safari/537.36"
+          )
+
+          REFERRER = "https://www.rctiplus.com/"
+
+          channels = {
+              "RCTI": {
+                  "file": "stream-rcti.txt",
+                  "worker": "https://iptv-gateway.mfikriawan450.workers.dev/rcti",
+              },
+              "MNCTV": {
+                  "file": "stream-mnctv.txt",
+                  "worker": "https://iptv-gateway.mfikriawan450.workers.dev/mnctv",
+              },
+              "GTV": {
+                  "file": "stream-gtv.txt",
+                  "worker": "https://iptv-gateway.mfikriawan450.workers.dev/gtv",
+              },
+          }
+
+          # ------------------------------------------
+          # Ambil URL asli dari os4.m3u
+          # ------------------------------------------
+
+          def get_channel_url(channel):
+              pattern = (
+                  r"#EXTINF:-1," + re.escape(channel) +
+                  r"\s+(.*?)"
+                  r"(?=\n#EXTINF|\Z)"
+              )
+
+              match = re.search(pattern, text, re.S)
+
+              if not match:
+                  raise RuntimeError(
+                      f"Channel {channel} tidak ditemukan di os4.m3u"
+                  )
+
+              block = match.group(1)
+
+              # Buang baris EXT-VLC-OPT
+              lines = []
+
+              for line in block.splitlines():
+                  line = line.strip()
+
+                  if not line:
+                      continue
+
+                  if line.startswith("#EXTVLCOPT:"):
+                      continue
+
+                  if line.startswith("#"):
+                      continue
+
+                  lines.append(line)
+
+              if not lines:
+                  raise RuntimeError(
+                      f"URL {channel} tidak ditemukan di os4.m3u"
+                  )
+
+              return lines[-1]
+
+
+          # ------------------------------------------
+          # Buat stream-rcti.txt
+          # stream-mnctv.txt
+          # stream-gtv.txt
+          # ------------------------------------------
+
+          for channel, config in channels.items():
+              url = get_channel_url(channel)
+
+              content = (
+                  "#EXTM3U\n"
+                  f"#EXTINF:-1,{channel}\n"
+                  f"#EXTVLCOPT:http-referrer={REFERRER}\n"
+                  f"#EXTVLCOPT:http-user-agent={USER_AGENT}\n"
+                  f"{url}\n"
+              )
+
+              Path(config["file"]).write_text(
+                  content,
+                  encoding="utf-8"
+              )
+
+              print(f"{channel} URL terbaru:")
+              print(url)
+              print(f"Ditulis ke {config['file']}")
+              print()
+
+
+          # ------------------------------------------
+          # Bersihkan os4.m3u
+          #
+          # RCTI/MNCTV/GTV:
+          # hanya URL Worker
+          # ------------------------------------------
+
+          worker_urls = {
+              "RCTI": channels["RCTI"]["worker"],
+              "MNCTV": channels["MNCTV"]["worker"],
+              "GTV": channels["GTV"]["worker"],
+          }
+
+          lines = text.splitlines()
+          output = []
+
+          current_channel = None
+
+          for line in lines:
+              stripped = line.strip()
+
+              if stripped.startswith("#EXTINF:-1,"):
+                  channel_name = stripped.replace("#EXTINF:-1,", "", 1).strip()
+                  current_channel = channel_name
+
+                  output.append(line)
+                  continue
+
+              if current_channel in worker_urls:
+                  if stripped.startswith("#EXTVLCOPT:"):
+                      continue
+
+                  # URL lama pada RCTI/MNCTV/GTV diganti Worker
+                  if stripped and not stripped.startswith("#"):
+                      output.append(worker_urls[current_channel])
+                      current_channel = None
+                      continue
+
+              output.append(line)
+
+          os4.write_text(
+              "\n".join(output).rstrip() + "\n",
+              encoding="utf-8"
+          )
+
+          print("=================================")
+          print("os4.m3u berhasil dibersihkan.")
+          print("RCTI/MNCTV/GTV sekarang hanya menggunakan URL Worker.")
+          print("=================================")
+          PY
+
+      # ==========================================
       # UPDATE TRANS7
       # ==========================================
 
@@ -72,6 +232,24 @@ jobs:
           echo "================================="
           cat os4.m3u
 
+          echo ""
+          echo "================================="
+          echo "ISI stream-rcti.txt"
+          echo "================================="
+          cat stream-rcti.txt
+
+          echo ""
+          echo "================================="
+          echo "ISI stream-mnctv.txt"
+          echo "================================="
+          cat stream-mnctv.txt
+
+          echo ""
+          echo "================================="
+          echo "ISI stream-gtv.txt"
+          echo "================================="
+          cat stream-gtv.txt
+
       # ==========================================
       # COMMIT & PUSH
       # ==========================================
@@ -81,14 +259,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          echo "================================="
-          echo "CEK FILE TRANS7"
-          echo "================================="
-
-          echo "Isi stream-trans7.txt:"
-          cat stream-trans7.txt || true
-
-          echo ""
           echo "================================="
           echo "STATUS GIT"
           echo "================================="
