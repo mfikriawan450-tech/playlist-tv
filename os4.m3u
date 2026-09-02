@@ -4,22 +4,22 @@
 https://livestream.transtv.co.id/stream/live/ttv.m3u8
 
 #EXTINF:-1,Trans7
-https://live.eu-north-1a.cf.dmcdn.net/sec2(djJF1ePAutSWIsfdBECIb15qp3nH5UaChUttOnltKQFfZfQLC785XNxB7ZdUbNayeObR5wKATKsMVKskKQRBqzh3xAGRSr0GLYJNSJ4uSr5g2AP-WdxsbMdfayndM6Z3)/dm/3/x8qckyq/d/live-480.m3u8
+https://live.eu-north-1a.cf.dmcdn.net/sec2(eK7p237aEWlsuDtmee7y0_bUfTTEB5CQmuedx-3KKtCFK8j31cKZ99cKL216-UMw97i5ErYw1znm6qSFWlIpYks-dUuP6mNnkBPVtsEFx693ROm2qA9UIPr68APFhym7)/dm/3/x8qckyq/d/live-480.m3u8
 
 #EXTINF:-1,RCTI
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1788371837~hmac=3ee29982940e88ffe1805c4af76f5a4ee757869558a6271b1dbbb3cde7909c63
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1788372798~hmac=12ab2432aae280fc3201a6aca4a73c9d5447c1113d98cc7bd8f797f3c1b89ba0
 
 #EXTINF:-1,MNCTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1788371841~hmac=02f7ed39da83b64fb9f2a66ea9ca072c15dceb62f5701afc039bff8a1760707d
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1788372802~hmac=195cd5871728cf38fc5f7501c2f6c2e67c6cb041512aaa307fa1a5897d9ce8eb
 
 #EXTINF:-1,GTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1788379045~hmac=c06be9bc07a2a9cc6b081628cf1fba7af0400e5c6235e2e420303073d5d16c20
+https://gtv-linier.rctiplus.id/gtv-sdi.m3u8?hdnts=exp=1788380006~hmac=85ae4156cd3b4593c9b9aa228022d88f35fd15322fc6b6ea9ac53f5da979a3c3
 
 #EXTINF:-1,TVRI Nasional
 https://ott-balancer.tvri.go.id/live/eds/Nasional/hls/Nasional.m3u8
