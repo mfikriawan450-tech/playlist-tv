@@ -4,17 +4,17 @@
 https://livestream.transtv.co.id/stream/live/ttv.m3u8
 
 #EXTINF:-1,Trans7
-https://live.eu-north-1a.cf.dmcdn.net/sec2(p46eAjxWMpjZ1yIbn5XAswWrFUlyOl8Zv2ytEH4tcoy_yJG405btUItkLDtGZF-oq0HSoyNIQEfib5F8dH9Gk8ffnQDdYgjD_5F2bcuFOwlu4OFi_Q23dK_XUgtWiaaQ)/dm/3/x8qckyq/d/live-480.m3u8
+https://live.eu-north-1a.cf.dmcdn.net/sec2(NZsV-shBci6101_ieWHzffyTeEdFfC21JYhiyaNqLopTzItGrogZfsVnvelPBBIW0InZ1hE3ilQ5BIbZVT2TouIiru9KviQUnkODa7q8KYOtTAXNq-ZlRkBwlOexfRzM)/dm/3/x8qckyq/d/live-480.m3u8
 
 #EXTINF:-1,RCTI
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1790632932~hmac=34bbf2857e4804d8738a6d6fa319bb311a2eace8a37108cb39b8619481efb646
+https://rcti-linier.rctiplus.id/rcti-sdi.m3u8?hdnts=exp=1787917915~hmac=138f994207be4be832c75696ba57f4dd6713b32a3c482f1846f4e892dbc10bbd
 
 #EXTINF:-1,MNCTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
 #EXTVLCOPT:http-user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36
-https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1790632936~hmac=0da234de4d51124eeeb2a5eca145077eaa2018389c786a8120f61392e5d0aed5
+https://mnctv-linier.rctiplus.id/mnctv-sdi.m3u8?hdnts=exp=1790660248~hmac=99c4c0cf8c8007c5b5db4efbc2f6af1985a12bb1245ee93f7ab7881559743ffa
 
 #EXTINF:-1,GTV
 #EXTVLCOPT:http-referrer=https://www.rctiplus.com/
